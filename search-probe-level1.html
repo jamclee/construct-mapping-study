@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hotel Selection</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+    color: #1f2328;
+    background: #ffffff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  .scenario { font-size: 15px; color: #1f2328; margin: 0 0 18px; }
+
+  /* ---- search summary bar (cosmetic, sets the booking-site frame) ---- */
+  .searchbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+    border: 1px solid #d8dce1; border-radius: 6px;
+    padding: 10px 12px; margin-bottom: 12px;
+    background: #f7f8fa;
+    font-size: 13.5px; color: #4a5158;
+  }
+  .searchbar .field { display: flex; align-items: baseline; gap: 6px; }
+  .searchbar .field .lab { color: #868e96; font-size: 12px; }
+  .searchbar .field .val { color: #1f2328; font-weight: 500; }
+
+  /* ---- per-attribute reveal controls ---- */
+  .attrbar {
+    border: 1px solid #d8dce1; border-radius: 6px;
+    padding: 11px 13px; margin-bottom: 14px;
+    background: #fff;
+  }
+  .attrbar .title {
+    font-size: 13px; font-weight: 600; color: #4a5158;
+    margin-bottom: 9px; letter-spacing: 0.01em;
+  }
+  .attrlist { display: flex; flex-wrap: wrap; gap: 8px 10px; }
+  .attrbox {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13.5px; color: #1f2328;
+    padding: 5px 11px 5px 9px;
+    border: 1px solid #c8ced4; border-radius: 20px; background: #fff;
+    cursor: pointer; user-select: none;
+  }
+  .attrbox:hover { border-color: #2f6fb0; color: #2f6fb0; }
+  .attrbox input { width: 14px; height: 14px; margin: 0; cursor: pointer; accent-color: #2f6fb0; }
+  .attrbox.on { border-color: #2f6fb0; background: #f2f7fc; color: #21527f; font-weight: 500; }
+
+  .count { font-size: 13.5px; color: #656c73; padding: 0 2px 8px; border-bottom: 1px solid #e6e8eb; }
+
+  /* ---- hotel cards ---- */
+  .card {
+    border: 1px solid #dfe3e7; border-radius: 7px;
+    padding: 15px 16px; margin-top: 12px;
+    background: #fff;
+  }
+
+  .cardtop { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  .name { font-size: 16.5px; font-weight: 600; margin: 0; }
+
+  .priceblock { text-align: right; white-space: nowrap; flex-shrink: 0; }
+  .rate { font-size: 19px; font-weight: 600; letter-spacing: -0.2px; }
+  .rate span { font-size: 12.5px; font-weight: 400; color: #737b82; }
+  .total { font-size: 12.5px; color: #737b82; margin-top: 1px; }
+
+  /* non-clickable cue: tells participants the information exists and where the
+     control is, without offering a shortcut that bypasses per-attribute choice */
+  .cue {
+    margin-top: 12px; padding-top: 11px; border-top: 1px solid #eceef0;
+    font-size: 13px; color: #868e96;
+  }
+  .card.has-details .cue { display: none; }
+
+  .details { margin-top: 12px; padding-top: 11px; border-top: 1px solid #eceef0; }
+  .details:empty { display: none; }
+  .drow { display: flex; gap: 12px; font-size: 13.5px; padding: 2.5px 0; }
+  .dlab { flex: 0 0 165px; color: #737b82; }
+  .dval { color: #1f2328; }
+
+  .cardfoot { margin-top: 14px; }
+  .selectbtn {
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    padding: 7px 20px; border-radius: 5px;
+    border: 1px solid #2f6fb0; background: #2f6fb0; color: #fff;
+    cursor: pointer;
+  }
+  .selectbtn:hover { background: #275e97; border-color: #275e97; }
+
+  @media (max-width: 520px) {
+    .cardtop { flex-direction: column; gap: 8px; }
+    .priceblock { text-align: left; }
+    .drow { flex-direction: column; gap: 0; }
+    .dlab { flex: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="scenario">
+    Imagine you are choosing a hotel for a five-night vacation to a large U.S. city.
+    The three hotels below are available in the same neighborhood for your dates.
+    Select the hotel you would prefer.
+  </p>
+
+  <div class="searchbar">
+    <div class="field"><span class="lab">Destination</span><span class="val">Downtown</span></div>
+    <div class="field"><span class="lab">Dates</span><span class="val">Oct 12 &ndash; Oct 17</span></div>
+    <div class="field"><span class="lab">Nights</span><span class="val">5</span></div>
+    <div class="field"><span class="lab">Guests</span><span class="val">2 adults</span></div>
+  </div>
+
+  <div class="attrbar">
+    <div class="title">Show details for all hotels</div>
+    <div class="attrlist" id="attrList"></div>
+  </div>
+
+  <div class="count">3 properties available</div>
+
+  <div id="results"></div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     PROBE CONFIG — search probe, per-attribute reveal
+
+     Visible layer: a neutral label and the nightly rate — nothing else.
+     Rates span ~$35 across the whole five-night stay, so price cannot
+     support a considered choice. Nothing else is visible, which is what
+     makes declining to reveal uninterpretable as a real preference.
+
+     Hidden layer: five heterogeneously valued attributes, each revealed by
+     its own checkbox. No option dominates and there is no correct answer —
+     do not score choice as right/wrong.
+
+     Because participants choose WHICH attributes to open, selective
+     revealing is rational search termination, not inattention. Pass is
+     "revealed at least one"; the count is a graded depth measure; which
+     attributes they opened is descriptive only.
+
+     Profiles are randomly assigned to the Hotel A / B / C labels, and the
+     attribute checkboxes are presented in random order so that acquisition
+     sequence is not confounded with left-to-right position.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "SP1";
+  var NIGHTS = 5;
+  var LABELS = ["Hotel A", "Hotel B", "Hotel C"];
+
+  var ATTRS = [
+    { key: "breakfast", label: "Breakfast" },
+    { key: "parking",   label: "Parking" },
+    { key: "fitness",   label: "Fitness & recreation" },
+    { key: "distance",  label: "Distance to downtown" },
+    { key: "room",      label: "Room & surroundings" }
+  ];
+
+  var PROFILES = [
+    {
+      id: "value_quiet",
+      rate: 199,
+      values: {
+        breakfast: "Included",
+        parking:   "Free",
+        fitness:   "None",
+        distance:  "20-minute walk",
+        room:      "Quiet residential block"
+      }
+    },
+    {
+      id: "central_facilities",
+      rate: 196,
+      values: {
+        breakfast: "Not included",
+        parking:   "$30 per night",
+        fitness:   "Fitness center and rooftop pool",
+        distance:  "8-minute walk",
+        room:      "Faces a busy avenue"
+      }
+    },
+    {
+      id: "close_renovated",
+      rate: 203,
+      values: {
+        breakfast: "Not included",
+        parking:   "Free",
+        fitness:   "Fitness center",
+        distance:  "5-minute walk",
+        room:      "Recently renovated, quiet floors"
+      }
+    }
+  ];
+
+  /* ---------------- state / instrumentation ---------------- */
+
+  var t0 = Date.now();
+  var revealedSet = [];   // attribute keys ever revealed, in order of first reveal
+  var lastChecked = {};   // guards reveal_toggles against duplicate change events
+
+  var state = {
+    probe: PROBE_ID,
+    assignment: null,          // profile id in slot A, B, C
+    attr_order: null,          // left-to-right order the checkboxes were shown in
+    revealed: 0,               // 0/1 — did they ever reveal any attribute
+    n_attrs_revealed: 0,       // distinct attributes ever revealed (0-5)
+    attrs_revealed: "",        // which ones, in order of first reveal
+    reveal_toggles: 0,         // total checkbox changes, including unchecking
+    t_first_interaction: null, // ms from load to any interaction
+    t_reveal: null,            // ms from load to first reveal
+    dwell_after_reveal: null,  // ms from first reveal to final selection
+    n_attrs_at_choice: 0,      // attributes visible at the moment of choosing
+    choice_profile: null,      // underlying option chosen
+    choice_label: null,        // "Hotel A" / "Hotel B" / "Hotel C" (= slot position)
+    choice_changes: 0,         // times the selection was changed
+    t_choice: null             // ms from load to selection
+  };
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) {
+      state.t_first_interaction = Date.now() - t0;
+    }
+  }
+
+  /* ---------------- counterbalancing ---------------- */
+
+  function shuffle(a) {
+    var arr = a.slice();
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  var assigned = shuffle(PROFILES);
+  state.assignment = assigned.map(function (p) { return p.id; }).join(",");
+
+  var attrOrder = shuffle(ATTRS);
+  state.attr_order = attrOrder.map(function (a) { return a.key; }).join(",");
+
+  /* ---------------- render checkboxes ---------------- */
+
+  var attrList = document.getElementById("attrList");
+
+  attrOrder.forEach(function (a) {
+    var lab = document.createElement("label");
+    lab.className = "attrbox";
+    lab.setAttribute("data-key", a.key);
+    lab.innerHTML = '<input type="checkbox" data-key="' + a.key +
+                    '" aria-label="Show ' + a.label + '">' + a.label;
+    attrList.appendChild(lab);
+  });
+
+  /* ---------------- render cards ---------------- */
+
+  var results = document.getElementById("results");
+
+  assigned.forEach(function (p, idx) {
+    var card = document.createElement("div");
+    card.className = "card";
+    card.setAttribute("data-profile", p.id);
+    card.setAttribute("data-label", LABELS[idx]);
+
+    card.innerHTML =
+      '<div class="cardtop">' +
+        '<div>' +
+          '<p class="name">' + LABELS[idx] + '</p>' +
+        '</div>' +
+        '<div class="priceblock">' +
+          '<div class="rate">$' + p.rate + ' <span>/ night</span></div>' +
+          '<div class="total">$' + (p.rate * NIGHTS).toLocaleString() + ' total</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="cue">Select an amenity above to compare these hotels.</div>' +
+      '<div class="details"></div>' +
+      '<div class="cardfoot"><button type="button" class="selectbtn">Select</button></div>';
+
+    results.appendChild(card);
+  });
+
+  /* ---------------- reveal ---------------- */
+
+  function checkedKeys() {
+    return Array.prototype.slice
+      .call(attrList.querySelectorAll("input:checked"))
+      .map(function (i) { return i.getAttribute("data-key"); });
+  }
+
+  function renderDetails() {
+    // Render in the participant's own reveal order, so the card mirrors how
+    // they built up the comparison rather than a fixed canonical order.
+    var open = checkedKeys();
+    var ordered = revealedSet.filter(function (k) { return open.indexOf(k) !== -1; });
+
+    document.querySelectorAll(".card").forEach(function (card) {
+      var prof = assigned.filter(function (p) {
+        return p.id === card.getAttribute("data-profile");
+      })[0];
+
+      card.querySelector(".details").innerHTML = ordered.map(function (k) {
+        var label = ATTRS.filter(function (a) { return a.key === k; })[0].label;
+        return '<div class="drow"><span class="dlab">' + label +
+               '</span><span class="dval">' + prof.values[k] + '</span></div>';
+      }).join("");
+
+      card.classList.toggle("has-details", ordered.length > 0);
+    });
+  }
+
+  attrList.addEventListener("change", function (e) {
+    var input = e.target.closest("input[type=checkbox]");
+    if (!input) return;
+
+    var key = input.getAttribute("data-key");
+
+    // A label-wrapped checkbox can, in some browsers, receive a forwarded click
+    // in addition to the direct one. Only count a toggle when the box actually
+    // landed in a new state, so reveal_toggles stays a clean behavioural count.
+    if (lastChecked[key] === input.checked) return;
+    lastChecked[key] = input.checked;
+
+    markInteraction();
+    state.reveal_toggles += 1;
+
+    input.closest(".attrbox").classList.toggle("on", input.checked);
+
+    if (input.checked && revealedSet.indexOf(key) === -1) {
+      revealedSet.push(key);
+      if (!state.revealed) {
+        state.revealed = 1;
+        state.t_reveal = Date.now() - t0;
+      }
+    }
+
+    state.n_attrs_revealed = revealedSet.length;
+    state.attrs_revealed = revealedSet.join(",");
+
+    renderDetails();
+    report();
+    reportHeight();
+  });
+
+  /* ---------------- selection ---------------- */
+
+  results.addEventListener("click", function (e) {
+    var btn = e.target.closest(".selectbtn");
+    if (!btn) return;
+
+    markInteraction();
+    var card = btn.closest(".card");
+
+    if (state.choice_profile !== null &&
+        state.choice_profile !== card.getAttribute("data-profile")) {
+      state.choice_changes += 1;
+    }
+
+    document.querySelectorAll(".selectbtn").forEach(function (b) {
+      b.textContent = b === btn ? "Selected" : "Select";
+    });
+
+    state.choice_profile = card.getAttribute("data-profile");
+    state.choice_label = card.getAttribute("data-label");
+    state.t_choice = Date.now() - t0;
+    state.n_attrs_at_choice = checkedKeys().length;
+    state.dwell_after_reveal =
+      state.t_reveal === null ? null : state.t_choice - state.t_reveal;
+
+    report();
+  });
+
+  /* ---------------- report to Qualtrics parent ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage(
+        { source: "probe", probe: PROBE_ID, data: state },
+        "*"
+      );
+    } catch (err) { /* standalone preview */ }
+  }
+
+  // keep the Qualtrics iframe sized to the content
+  var lastHeight = 0;
+  var ro = null; // must be retained, or it can be garbage collected and stop firing
+
+  function reportHeight() {
+    // body.scrollHeight, not documentElement.scrollHeight — the latter is
+    // floored at the viewport height and so never changes inside an iframe.
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage(
+        { source: "probe", probe: PROBE_ID, height: h },
+        "*"
+      );
+    } catch (err) { /* standalone preview */ }
+  }
+
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+
+  if (window.ResizeObserver) {
+    ro = new ResizeObserver(reportHeight);
+    ro.observe(document.body);
+  }
+
+  // Belt and braces: revealing attributes changes height substantially, and a
+  // clipped iframe silently breaks the probe. Poll cheaply as a fallback for
+  // browsers where the observer misbehaves.
+  setInterval(reportHeight, 500);
+
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

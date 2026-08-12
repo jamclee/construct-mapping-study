@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flight Selection</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.45; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .scenario { font-size: 15px; margin: 0 0 18px; }
+
+  .searchbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+    border: 1px solid #d8dce1; border-radius: 6px; padding: 10px 12px;
+    margin-bottom: 12px; background: #f7f8fa; font-size: 13.5px; color: #4a5158;
+  }
+  .searchbar .field { display: flex; align-items: baseline; gap: 6px; }
+  .searchbar .lab { color: #868e96; font-size: 12px; }
+  .searchbar .val { color: #1f2328; font-weight: 500; }
+
+  .count { font-size: 13.5px; color: #656c73; padding: 0 2px 8px; border-bottom: 1px solid #e6e8eb; }
+
+  .card {
+    border: 1px solid #dfe3e7; border-radius: 7px;
+    padding: 15px 16px; margin-top: 12px; background: #fff;
+  }
+  .card.chosen { border-color: #2f6fb0; box-shadow: 0 0 0 1px #2f6fb0 inset; }
+  .cardtop { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  .name { font-size: 16.5px; font-weight: 600; margin: 0 0 2px; }
+  .itin { font-size: 13px; color: #737b82; margin: 0; }
+  .priceblock { text-align: right; white-space: nowrap; flex-shrink: 0; }
+  .rate { font-size: 19px; font-weight: 600; letter-spacing: -0.2px; }
+  .rate span { font-size: 12.5px; font-weight: 400; color: #737b82; }
+
+  .fare { margin-top: 12px; padding-top: 11px; border-top: 1px solid #eceef0; }
+  .cell { display: flex; align-items: baseline; gap: 12px; font-size: 13.5px; padding: 3px 0; }
+  .clab { flex: 0 0 175px; color: #737b82; }
+  .cval { color: #1f2328; }
+  .cbtn {
+    font-family: inherit; font-size: 13px; font-weight: 500;
+    padding: 1px 9px; border-radius: 4px;
+    border: 1px solid #c8ced4; background: #fff; color: #2f6fb0; cursor: pointer;
+  }
+  .cbtn:hover { border-color: #2f6fb0; background: #f2f7fc; }
+
+  .cardfoot { margin-top: 14px; }
+  .selectbtn {
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    padding: 7px 20px; border-radius: 5px;
+    border: 1px solid #2f6fb0; background: #2f6fb0; color: #fff; cursor: pointer;
+  }
+  .selectbtn:hover { background: #275e97; border-color: #275e97; }
+
+  @media (max-width: 520px) {
+    .cardtop { flex-direction: column; gap: 8px; }
+    .priceblock { text-align: left; }
+    .clab { flex: 0 0 140px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="scenario">
+    Imagine that you are booking a round-trip domestic airline ticket for an
+    upcoming vacation. You come across the following non-stop flight options,
+    with similar departure and arrival times.
+    <br><br>
+    Select the ticket you would prefer. Additional baggage and seat selection
+    fees may apply. You may view more information before making your choice.
+  </p>
+
+  <div class="searchbar">
+    <div class="field"><span class="lab">Route</span><span class="val">Round trip, domestic</span></div>
+    <div class="field"><span class="lab">Dates</span><span class="val">Oct 12 &ndash; Oct 17</span></div>
+    <div class="field"><span class="lab">Travellers</span><span class="val">1 adult</span></div>
+  </div>
+
+  <div class="count">3 fares available</div>
+  <div id="results"></div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     ACQUISITION PROBE — access problem: REVEAL
+
+     The decision-relevant information is spatially localized behind obvious
+     labelled controls. Every control is visible; nothing has to be located and
+     nothing is off-screen. The only question is whether the participant pays
+     the cost of opening what they need.
+
+     Reveal is per-cell rather than global. Deciding WHICH cells to open is an
+     allocation decision, not a location problem — every button is in plain
+     sight — so this remains the reveal environment. It is also the same kind
+     of depth decision the scroll probe involves (how far to keep reading), so
+     a global control would not have made the battery purer, only poorer:
+     per-cell yields acquisition sequence, partial acquisition, and a search
+     pattern index, from which the binary can be recovered but not the reverse.
+
+     CRITERION. `revealed` is defined as n_attrs_fully_compared >= 1: one
+     attribute known for all three flights. This matters for comparability —
+     in acq-search one article reveals all three sellers at once, and in
+     acq-scroll the fee is the whole fact. Defining `revealed` as "opened any
+     cell" would make the battery's pass criterion mean something weaker here
+     than in the other two probes.
+
+     Visible layer: label, an identical itinerary line, and the base fare.
+     Fares span $13 while hidden bag and seat fees run to $40 and $25 per
+     segment. Each flight wins on something different — flexibility, a free
+     bag, legroom — so no option dominates and there is no correct answer.
+
+     Difficulty is not manipulated across the acquisition set. Cost differs by
+     mechanic and is logged, not equated.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "ACQ_REVEAL";
+  var LABELS = ["Flight A", "Flight B", "Flight C"];
+  var ITIN = "Non-stop &middot; 3h 15m each way";
+
+  var ATTRS = [
+    { key: "bag",     label: "Checked bag" },
+    { key: "seat",    label: "Seat selection" },
+    { key: "changes", label: "Changes & cancellation" },
+    { key: "legroom", label: "Legroom" }
+  ];
+
+  var PROFILES = [
+    { id: "flexible", fare: 337, values: {
+        bag: "$35 each way", seat: "Free, choose in advance",
+        changes: "Free changes and cancellation", legroom: "30 inches" } },
+    { id: "bag_included", fare: 329, values: {
+        bag: "First bag free", seat: "$25 per segment",
+        changes: "$99 change fee, non-refundable", legroom: "31 inches" } },
+    { id: "roomy_basic", fare: 324, values: {
+        bag: "$40 each way", seat: "Assigned at check-in",
+        changes: "Changes not permitted", legroom: "34 inches" } }
+  ];
+
+  /* ---------------- state ---------------- */
+
+  var t0 = Date.now();
+  var revealOrder = [];   // [{opt, attr}] in order of first reveal
+
+  var state = {
+    probe: PROBE_ID,
+    mechanic: "reveal",
+    assignment: null,
+    attr_order: null,
+    revealed: 0,                // = n_attrs_fully_compared >= 1 (battery criterion)
+    any_cell_opened: 0,         // weaker "engaged at all" indicator
+    n_cells_revealed: 0,        // 0-12
+    cells_revealed: null,
+    n_attrs_compared: 0,        // attributes opened for >= 2 flights
+    n_attrs_fully_compared: 0,  // attributes opened for all 3 flights
+    n_options_touched: 0,
+    acquisition_cost: 0,        // = n_cells_revealed
+    payne_index: null,
+    t_first_interaction: null,
+    t_first_cell: null,         // ms to first acquisition act
+    t_reveal: null,             // ms to meeting the criterion
+    dwell_after_reveal: null,
+    n_cells_at_choice: 0,
+    choice_profile: null,
+    choice_label: null,
+    choice_changes: 0,
+    t_choice: null
+  };
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) state.t_first_interaction = Date.now() - t0;
+  }
+
+  function shuffle(a) {
+    var arr = a.slice();
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  var assigned = shuffle(PROFILES);
+  state.assignment = assigned.map(function (p) { return p.id; }).join(",");
+
+  var attrRows = shuffle(ATTRS);
+  state.attr_order = attrRows.map(function (a) { return a.key; }).join(",");
+
+  /* ---------------- render ---------------- */
+
+  var results = document.getElementById("results");
+
+  assigned.forEach(function (p, idx) {
+    var rows = attrRows.map(function (a) {
+      return '<div class="cell" data-attr="' + a.key + '">' +
+               '<span class="clab">' + a.label + '</span>' +
+               '<button type="button" class="cbtn" aria-label="View ' + a.label +
+                 ' for ' + LABELS[idx] + '">View</button>' +
+             '</div>';
+    }).join("");
+
+    var card = document.createElement("div");
+    card.className = "card";
+    card.setAttribute("data-profile", p.id);
+    card.setAttribute("data-label", LABELS[idx]);
+    card.setAttribute("data-slot", "ABC".charAt(idx));
+    card.innerHTML =
+      '<div class="cardtop">' +
+        '<div>' +
+          '<p class="name">' + LABELS[idx] + '</p>' +
+          '<p class="itin">' + ITIN + '</p>' +
+        '</div>' +
+        '<div class="priceblock">' +
+          '<div class="rate">$' + p.fare + ' <span>round trip</span></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="fare">' + rows + '</div>' +
+      '<div class="cardfoot"><button type="button" class="selectbtn">Select</button></div>';
+    results.appendChild(card);
+  });
+
+  /* ---------------- derived measures ---------------- */
+
+  function recompute() {
+    var byAttr = {}, byOpt = {};
+    revealOrder.forEach(function (c) {
+      (byAttr[c.attr] = byAttr[c.attr] || {})[c.opt] = true;
+      byOpt[c.opt] = true;
+    });
+
+    var compared = 0, full = 0;
+    Object.keys(byAttr).forEach(function (k) {
+      var n = Object.keys(byAttr[k]).length;
+      if (n >= 2) compared++;
+      if (n >= 3) full++;
+    });
+
+    state.n_cells_revealed = revealOrder.length;
+    state.cells_revealed = revealOrder.map(function (c) { return c.opt + ":" + c.attr; }).join(",");
+    state.n_attrs_compared = compared;
+    state.n_attrs_fully_compared = full;
+    state.n_options_touched = Object.keys(byOpt).length;
+    state.acquisition_cost = revealOrder.length;
+
+    // Battery criterion: the decision-relevant fact acquired for ALL options.
+    if (full >= 1 && !state.revealed) {
+      state.revealed = 1;
+      state.t_reveal = Date.now() - t0;
+    }
+
+    var attrWise = 0, altWise = 0;
+    for (var i = 1; i < revealOrder.length; i++) {
+      var a = revealOrder[i - 1], b = revealOrder[i];
+      if (a.attr === b.attr && a.opt !== b.opt) attrWise++;
+      else if (a.opt === b.opt && a.attr !== b.attr) altWise++;
+    }
+    state.payne_index = (attrWise + altWise) === 0
+      ? null
+      : Math.round(((attrWise - altWise) / (attrWise + altWise)) * 100) / 100;
+  }
+
+  /* ---------------- interaction ---------------- */
+
+  results.addEventListener("click", function (e) {
+
+    var cbtn = e.target.closest(".cbtn");
+    if (cbtn) {
+      var cell = cbtn.closest(".cell");
+      var card = cbtn.closest(".card");
+      var opt = card.getAttribute("data-slot");
+      var attr = cell.getAttribute("data-attr");
+      var prof = assigned["ABC".indexOf(opt)];
+
+      markInteraction();
+
+      // Reveals are irreversible, so acquisition stays a monotone record.
+      var val = document.createElement("span");
+      val.className = "cval";
+      val.textContent = prof.values[attr];
+      cbtn.replaceWith(val);
+
+      revealOrder.push({ opt: opt, attr: attr });
+      if (!state.any_cell_opened) {
+        state.any_cell_opened = 1;
+        state.t_first_cell = Date.now() - t0;
+      }
+
+      recompute();
+      report();
+      reportHeight();
+      return;
+    }
+
+    var btn = e.target.closest(".selectbtn");
+    if (!btn) return;
+
+    markInteraction();
+    var chosen = btn.closest(".card");
+
+    if (state.choice_profile !== null &&
+        state.choice_profile !== chosen.getAttribute("data-profile")) {
+      state.choice_changes += 1;
+    }
+
+    document.querySelectorAll(".selectbtn").forEach(function (b) {
+      b.textContent = b === btn ? "Selected" : "Select";
+    });
+    document.querySelectorAll(".card").forEach(function (c) {
+      c.classList.toggle("chosen", c === chosen);
+    });
+
+    state.choice_profile = chosen.getAttribute("data-profile");
+    state.choice_label = chosen.getAttribute("data-label");
+    state.t_choice = Date.now() - t0;
+    state.n_cells_at_choice = revealOrder.length;
+    state.dwell_after_reveal =
+      state.t_reveal === null ? null : state.t_choice - state.t_reveal;
+
+    report();
+  });
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(reportHeight, 500);
+
+  recompute();
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

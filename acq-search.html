@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monitor Selection</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.45; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .scenario { font-size: 15px; margin: 0 0 18px; }
+
+  .searchbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+    border: 1px solid #d8dce1; border-radius: 6px; padding: 10px 12px;
+    margin-bottom: 14px; background: #f7f8fa; font-size: 13.5px; color: #4a5158;
+  }
+  .searchbar .field { display: flex; align-items: baseline; gap: 6px; }
+  .searchbar .lab { color: #868e96; font-size: 12px; }
+  .searchbar .val { color: #1f2328; font-weight: 500; }
+
+  /* ---- option row ---- */
+  .options { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+  .card {
+    flex: 1 1 200px; border: 1px solid #dfe3e7; border-radius: 7px;
+    padding: 13px 14px; background: #fff;
+  }
+  .card.chosen { border-color: #2f6fb0; box-shadow: 0 0 0 1px #2f6fb0 inset; }
+  .name { font-size: 15.5px; font-weight: 600; margin: 0 0 3px; }
+  .rate { font-size: 18px; font-weight: 600; letter-spacing: -0.2px; }
+  .selectbtn {
+    font-family: inherit; font-size: 13.5px; font-weight: 500;
+    margin-top: 11px; padding: 6px 16px; border-radius: 5px;
+    border: 1px solid #2f6fb0; background: #2f6fb0; color: #fff; cursor: pointer;
+  }
+  .selectbtn:hover { background: #275e97; border-color: #275e97; }
+
+  /* ---- tabbed product information ---- */
+  .infopanel { border: 1px solid #dfe3e7; border-radius: 7px; overflow: hidden; }
+  .tabs {
+    display: flex; flex-wrap: wrap; gap: 0;
+    background: #f7f8fa; border-bottom: 1px solid #dfe3e7;
+  }
+  .tab {
+    font-family: inherit; font-size: 13.5px; font-weight: 500;
+    padding: 10px 14px; border: 0; border-right: 1px solid #e6e8eb;
+    background: none; color: #4a5158; cursor: pointer; white-space: nowrap;
+  }
+  .tab:hover { color: #2f6fb0; background: #f0f3f6; }
+  .tab.active { background: #fff; color: #1f2328; box-shadow: inset 0 -2px 0 #2f6fb0; }
+
+  .tabbody { padding: 15px 16px; font-size: 13.5px; }
+  .tabbody p { margin: 0 0 9px; }
+  .tabbody p:last-child { margin-bottom: 0; }
+  .tabbody table { width: 100%; border-collapse: collapse; }
+  .tabbody th, .tabbody td {
+    text-align: left; padding: 7px 10px 7px 0; border-bottom: 1px solid #f1f3f5;
+    vertical-align: top;
+  }
+  .tabbody th { color: #737b82; font-weight: 500; width: 34%; }
+  .tabbody tr:last-child th, .tabbody tr:last-child td { border-bottom: 0; }
+
+  @media (max-width: 520px) {
+    .options { flex-direction: column; }
+    .tab { flex: 1 1 auto; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="scenario">
+    Imagine you are buying a 27-inch computer monitor online. You are not certain
+    it will fit your desk, so there is a reasonable chance you will need to send
+    it back. The three monitors below are sold by the same retailer.
+    <br><br>
+    Select the monitor you would prefer.
+  </p>
+
+  <div class="searchbar">
+    <div class="field"><span class="lab">Category</span><span class="val">27&quot; monitor</span></div>
+    <div class="field"><span class="lab">Condition</span><span class="val">New</span></div>
+    <div class="field"><span class="lab">Seller</span><span class="val">Same retailer</span></div>
+  </div>
+
+  <div class="options" id="options"></div>
+
+  <div class="infopanel">
+    <div class="tabs" id="tabs"></div>
+    <div class="tabbody" id="tabbody"></div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     ACQUISITION PROBE — access problem: SEARCH / LOCATION DISCOVERY
+
+     The decision-relevant fact is not hidden behind an obvious control and
+     is not off-screen. It exists in one of several plausible locations, and
+     the participant has to work out WHICH. That is the diagnostic behaviour
+     here: not clicking, but locating.
+
+     The scenario makes returns the relevant consideration. The intuitive
+     place to look is "Shipping & Delivery" — returns involve shipping — but
+     the policy lives under "Warranty & Service". Opening the intuitive tab
+     yields plausible, unhelpful content, which is what makes this a genuine
+     location problem rather than click-to-reveal with extra steps.
+
+     Every non-target tab is IDENTICAL across the three monitors. Only the
+     target tab discriminates, so no participant can form a considered
+     preference without finding it. The Description tab is open by default,
+     as on a real product page; because it is non-diagnostic this costs
+     nothing, and it means every tab switch is a deliberate search act.
+
+     Difficulty is not manipulated across the acquisition set. The criterion
+     is constant — one decision-relevant fact must be acquired — while the
+     cost differs by mechanic and is logged rather than equated.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "ACQ_SEARCH";
+  var LABELS = ["Model A", "Model B", "Model C"];
+  var TARGET_TAB = "warranty";
+  var DEFAULT_TAB = "description";
+
+  var TABS = [
+    { key: "description", label: "Description" },
+    { key: "specs",       label: "Specifications" },
+    { key: "shipping",    label: "Shipping & Delivery" },
+    { key: "warranty",    label: "Warranty & Service" },
+    { key: "reviews",     label: "Customer Reviews" }
+  ];
+
+  var PROFILES = [
+    {
+      id: "free_returns",
+      price: 199,
+      warranty: "1 year parts and labour",
+      returns:  "30 days, free return shipping"
+    },
+    {
+      id: "restocking",
+      price: 194,
+      warranty: "3 years parts and labour",
+      returns:  "30 days, 15% restocking fee deducted from refund"
+    },
+    {
+      id: "final_sale",
+      price: 189,
+      warranty: "1 year parts and labour",
+      returns:  "Final sale, not eligible for return"
+    }
+  ];
+
+  /* ---------------- state ---------------- */
+
+  var t0 = Date.now();
+  var visitOrder = [];      // distinct tab keys, in order of first deliberate visit
+  var tabTime = {};         // ms accumulated per tab
+  var currentTab = DEFAULT_TAB;
+  var tabEnteredAt = Date.now();
+
+  var state = {
+    probe: PROBE_ID,
+    mechanic: "search",
+    assignment: null,
+    tab_order: null,             // randomised left-to-right order of the tabs
+    revealed: 0,                 // 1 if the target tab was ever opened
+    target_tab_opened: 0,
+    first_tab_clicked: null,     // first deliberate switch away from the default
+    tabs_visited: null,          // distinct tabs opened, in order
+    n_tabs_visited: 0,
+    n_tabs_before_target: null,  // search cost: distinct tabs opened before the target
+    tab_switches: 0,             // total tab clicks, including revisits
+    acquisition_cost: 0,         // = n_tabs_visited (distinct locations inspected)
+    time_on_target: 0,           // ms spent with the target tab showing
+    t_first_interaction: null,
+    t_reveal: null,              // ms to first opening the target tab
+    dwell_after_reveal: null,
+    target_open_at_choice: 0,
+    choice_profile: null,
+    choice_label: null,
+    choice_changes: 0,
+    t_choice: null
+  };
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) state.t_first_interaction = Date.now() - t0;
+  }
+
+  function shuffle(a) {
+    var arr = a.slice();
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  var assigned = shuffle(PROFILES);
+  state.assignment = assigned.map(function (p) { return p.id; }).join(",");
+
+  // Randomise tab order but keep the default tab first, as a real product page
+  // would. Otherwise tab position confounds "where I looked" with "what was
+  // nearest".
+  var rest = shuffle(TABS.filter(function (t) { return t.key !== DEFAULT_TAB; }));
+  var tabOrder = [TABS.filter(function (t) { return t.key === DEFAULT_TAB; })[0]].concat(rest);
+  state.tab_order = tabOrder.map(function (t) { return t.key; }).join(",");
+
+  function slotLabel(i) { return LABELS[i]; }
+
+  /* ---------------- tab content ---------------- */
+
+  function rowsFor(field) {
+    return '<table><tbody>' + assigned.map(function (p, i) {
+      return '<tr><th>' + slotLabel(i) + '</th><td>' + p[field] + '</td></tr>';
+    }).join("") + '</tbody></table>';
+  }
+
+  // Non-target tabs are identical across the three monitors by design.
+  var CONTENT = {
+    description:
+      '<p>A 27-inch flat panel monitor with a matte anti-glare finish and a ' +
+      'height-adjustable stand. Suitable for office work, study, and general ' +
+      'home use.</p>' +
+      '<p>All three models in this listing share the same panel, stand, and ' +
+      'port selection.</p>',
+    specs:
+      '<table><tbody>' +
+      '<tr><th>Screen size</th><td>27 inches</td></tr>' +
+      '<tr><th>Resolution</th><td>2560 &times; 1440</td></tr>' +
+      '<tr><th>Refresh rate</th><td>75 Hz</td></tr>' +
+      '<tr><th>Ports</th><td>2 &times; HDMI, 1 &times; DisplayPort, 1 &times; USB-C</td></tr>' +
+      '<tr><th>Stand</th><td>Height and tilt adjustable</td></tr>' +
+      '</tbody></table>' +
+      '<p style="margin-top:10px;color:#737b82">Specifications are the same for all three models.</p>',
+    shipping:
+      '<p>Free standard shipping on all three models, arriving in 3&ndash;5 ' +
+      'business days. Expedited shipping is available at checkout for $12.</p>' +
+      '<p>Orders are dispatched from the same warehouse and ship in ' +
+      'manufacturer packaging. Delivery does not require a signature.</p>' +
+      '<p style="color:#737b82">Return shipping arrangements are covered under ' +
+      'Warranty &amp; Service.</p>',
+    warranty:
+      '<p style="margin-bottom:12px;color:#737b82">Coverage and return terms ' +
+      'differ between these three models.</p>' +
+      '<p style="font-weight:600;margin-bottom:4px">Returns</p>' +
+      rowsFor("returns") +
+      '<p style="font-weight:600;margin:14px 0 4px">Manufacturer warranty</p>' +
+      rowsFor("warranty"),
+    reviews:
+      '<p><strong>4.4 out of 5</strong> &middot; 812 ratings</p>' +
+      '<p>&ldquo;Sharp picture and the stand is easy to adjust. Setup took about ' +
+      'ten minutes.&rdquo;</p>' +
+      '<p>&ldquo;Colours look accurate out of the box. No complaints so far.&rdquo;</p>' +
+      '<p style="color:#737b82">Ratings are pooled across all three models.</p>'
+  };
+
+  /* ---------------- render ---------------- */
+
+  var optionsEl = document.getElementById("options");
+  var tabsEl = document.getElementById("tabs");
+  var tabBodyEl = document.getElementById("tabbody");
+
+  optionsEl.innerHTML = assigned.map(function (p, i) {
+    return '<div class="card" data-profile="' + p.id + '" data-label="' + LABELS[i] + '">' +
+             '<p class="name">' + LABELS[i] + '</p>' +
+             '<div class="rate">$' + p.price + '</div>' +
+             '<button type="button" class="selectbtn">Select</button>' +
+           '</div>';
+  }).join("");
+
+  tabsEl.innerHTML = tabOrder.map(function (t) {
+    return '<button type="button" class="tab' +
+           (t.key === DEFAULT_TAB ? ' active' : '') +
+           '" data-tab="' + t.key + '">' + t.label + '</button>';
+  }).join("");
+
+  function renderTab(key) {
+    tabBodyEl.innerHTML = CONTENT[key];
+    document.querySelectorAll(".tab").forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-tab") === key);
+    });
+  }
+  renderTab(DEFAULT_TAB);
+
+  /* ---------------- tab interaction ---------------- */
+
+  function accrueTime() {
+    var now = Date.now();
+    tabTime[currentTab] = (tabTime[currentTab] || 0) + (now - tabEnteredAt);
+    tabEnteredAt = now;
+    state.time_on_target = tabTime[TARGET_TAB] || 0;
+  }
+
+  tabsEl.addEventListener("click", function (e) {
+    var btn = e.target.closest(".tab");
+    if (!btn) return;
+
+    var key = btn.getAttribute("data-tab");
+    if (key === currentTab) return;
+
+    markInteraction();
+    accrueTime();
+
+    state.tab_switches += 1;
+    if (state.first_tab_clicked === null) state.first_tab_clicked = key;
+
+    if (visitOrder.indexOf(key) === -1) {
+      visitOrder.push(key);
+      if (key === TARGET_TAB) {
+        // distinct non-default tabs inspected before landing on the target
+        state.n_tabs_before_target = visitOrder.length - 1;
+        state.target_tab_opened = 1;
+        state.revealed = 1;
+        state.t_reveal = Date.now() - t0;
+      }
+    }
+
+    state.tabs_visited = visitOrder.join(",");
+    state.n_tabs_visited = visitOrder.length;
+    state.acquisition_cost = visitOrder.length;
+
+    currentTab = key;
+    renderTab(key);
+    report();
+    reportHeight();
+  });
+
+  /* ---------------- selection ---------------- */
+
+  optionsEl.addEventListener("click", function (e) {
+    var btn = e.target.closest(".selectbtn");
+    if (!btn) return;
+
+    markInteraction();
+    accrueTime();
+    var card = btn.closest(".card");
+
+    if (state.choice_profile !== null &&
+        state.choice_profile !== card.getAttribute("data-profile")) {
+      state.choice_changes += 1;
+    }
+
+    document.querySelectorAll(".selectbtn").forEach(function (b) {
+      b.textContent = b === btn ? "Selected" : "Select";
+    });
+    document.querySelectorAll(".card").forEach(function (c) {
+      c.classList.toggle("chosen", c === card);
+    });
+
+    state.choice_profile = card.getAttribute("data-profile");
+    state.choice_label = card.getAttribute("data-label");
+    state.t_choice = Date.now() - t0;
+    state.target_open_at_choice = currentTab === TARGET_TAB ? 1 : 0;
+    state.dwell_after_reveal =
+      state.t_reveal === null ? null : state.t_choice - state.t_reveal;
+
+    report();
+  });
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(function () { accrueTime(); reportHeight(); }, 500);
+
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

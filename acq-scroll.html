@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sublet Listing</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.45; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .scenario { font-size: 15px; margin: 0 0 18px; }
+
+  .listinghead {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 16px; padding-bottom: 11px; border-bottom: 1px solid #e6e8eb;
+    margin-bottom: 2px;
+  }
+  .title { font-size: 17px; font-weight: 600; margin: 0 0 2px; }
+  .sub { font-size: 13px; color: #737b82; margin: 0; }
+  .priceblock { text-align: right; white-space: nowrap; flex-shrink: 0; }
+  .rate { font-size: 20px; font-weight: 600; letter-spacing: -0.2px; }
+  .rate span { font-size: 12.5px; font-weight: 400; color: #737b82; }
+
+  /* Internal scroll pane. A Qualtrics iframe that auto-resizes to its content
+     never scrolls itself, so page-level scroll cannot be detected. Scrolling
+     a fixed-height element inside the page is reliable regardless of how the
+     iframe is sized. */
+  .panewrap { position: relative; }
+  #pane {
+    height: 420px; overflow-y: auto; padding: 14px 16px 18px;
+    border: 1px solid #dfe3e7; border-top: 0;
+    border-radius: 0 0 7px 7px;
+  }
+  .panewrap::after {
+    content: ""; position: absolute; left: 1px; right: 14px; bottom: 1px; height: 34px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95));
+    pointer-events: none; border-radius: 0 0 7px 7px;
+  }
+  .panewrap.at-end::after { opacity: 0; }
+
+  #pane h3 {
+    font-size: 14px; font-weight: 600; margin: 18px 0 7px;
+    text-transform: uppercase; letter-spacing: 0.03em; color: #4a5158;
+  }
+  #pane h3:first-child { margin-top: 0; }
+  #pane p { margin: 0 0 10px; font-size: 14px; }
+  #pane ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; }
+  #pane li { margin-bottom: 4px; }
+
+  .facts { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 4px; }
+  .facts th, .facts td {
+    text-align: left; padding: 6px 10px 6px 0;
+    border-bottom: 1px solid #f1f3f5; vertical-align: top;
+  }
+  .facts th { color: #737b82; font-weight: 500; width: 40%; }
+
+  .decision { margin-top: 20px; padding-top: 16px; border-top: 1px solid #e6e8eb; }
+  .qtext { font-size: 15px; margin: 0 0 12px; }
+  .choices { display: flex; gap: 10px; flex-wrap: wrap; }
+  .choicebtn {
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    padding: 9px 18px; border-radius: 5px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+  }
+  .choicebtn:hover { border-color: #2f6fb0; color: #2f6fb0; background: #f2f7fc; }
+  .choicebtn.chosen {
+    border-color: #2f6fb0; background: #2f6fb0; color: #fff;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="scenario">
+    Imagine you are looking for a one-bedroom apartment to rent for the coming
+    year. You can afford up to about <strong>$1,250 per month</strong> in total
+    housing costs. You come across the listing below.
+  </p>
+
+  <div class="listinghead">
+    <div>
+      <p class="title">Sunny one-bedroom &mdash; available October 1</p>
+      <p class="sub">Riverside &middot; 1 bed &middot; 1 bath &middot; 640 sq ft</p>
+    </div>
+    <div class="priceblock">
+      <div class="rate">$1,200 <span>/ month</span></div>
+    </div>
+  </div>
+
+  <div class="panewrap" id="panewrap">
+    <div id="pane">
+
+      <h3>About this apartment</h3>
+      <p>
+        A bright one-bedroom on the third floor of a well-kept walk-up, facing
+        south over a quiet residential street. The living room gets good light
+        through most of the day and the bedroom comfortably fits a queen bed
+        with room for a dresser and a small desk.
+      </p>
+      <p>
+        The kitchen was updated three years ago and includes a full-size
+        refrigerator, a gas range, and a dishwasher. There is a reasonable
+        amount of cabinet space and a small pantry cupboard beside the fridge.
+        The bathroom has a shower-tub combination and a linen closet.
+      </p>
+      <p>
+        Hardwood floors run throughout the unit apart from the bathroom, which
+        is tiled. Windows were replaced building-wide two winters ago, which has
+        made a noticeable difference to both noise and heating.
+      </p>
+
+      <h3>Unit details</h3>
+      <table class="facts"><tbody>
+        <tr><th>Floor</th><td>Third of four, walk-up</td></tr>
+        <tr><th>Heating</th><td>Radiator, building-controlled</td></tr>
+        <tr><th>Air conditioning</th><td>Window unit included</td></tr>
+        <tr><th>Laundry</th><td>Shared machines in basement</td></tr>
+        <tr><th>Storage</th><td>One basement locker assigned per unit</td></tr>
+        <tr><th>Lease</th><td>12 months, starting October 1</td></tr>
+      </tbody></table>
+
+      <h3>Building and neighbourhood</h3>
+      <p>
+        The building has twelve units and an on-site superintendent who handles
+        day-to-day maintenance. Entry is by key fob and there is a secure package
+        room off the lobby. Bicycle storage is available in the basement on a
+        first-come basis.
+      </p>
+      <p>
+        The block is largely residential and quiet in the evenings. A grocery
+        store, pharmacy, and several cafes are within a five-minute walk, and the
+        nearest bus stop is at the corner. The subway is about twelve minutes on
+        foot, with a second line another five minutes beyond that.
+      </p>
+      <p>
+        Street parking is available by residential permit. The building does not
+        have dedicated parking spaces, though a paid lot operates two blocks
+        north for tenants who need a reserved spot.
+      </p>
+
+      <h3>Additional terms</h3>
+      <p>
+        Prospective tenants should be aware of the following before applying.
+        The security deposit is equal to one month's rent and is due at signing,
+        together with the first month's rent.
+      </p>
+      <ul>
+        <li>Renter's insurance is required and must be maintained for the term.</li>
+        <li>
+          <strong data-target="fee">In addition to the monthly rent, tenants are
+          responsible for a mandatory building assessment of $185 per month,
+          billed separately, which covers water, heating, and common-area
+          maintenance.</strong>
+        </li>
+        <li>Cats are permitted with a one-time $150 fee. Dogs are not permitted.</li>
+        <li>Subletting requires written approval from the building manager.</li>
+      </ul>
+
+      <h3>Viewing and application</h3>
+      <p>
+        Viewings are held on weekday evenings and Saturday mornings by
+        appointment. Applications are reviewed in the order received and
+        typically take two to three business days to process.
+      </p>
+      <p>
+        Applicants should be prepared to provide proof of income, one form of
+        photo identification, and a reference from a previous landlord where
+        available.
+      </p>
+
+    </div>
+  </div>
+
+  <div class="decision">
+    <p class="qtext">Would you schedule a viewing for this apartment?</p>
+    <div class="choices">
+      <button type="button" class="choicebtn" data-choice="schedule">Schedule a viewing</button>
+      <button type="button" class="choicebtn" data-choice="keep_looking">Keep looking at other listings</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     ACQUISITION PROBE — access problem: EXPOSURE / SCROLL
+
+     The decision-relevant fact is not hidden and not misfiled. It is plainly
+     present in the document, in the section where a reader would expect it,
+     simply below the current viewport. No discrete act reveals it; acquisition
+     depends only on visually reaching it. This is exposure acquisition rather
+     than information search.
+
+     The scenario sets a budget of $1,250. Advertised rent is $1,200, which is
+     inside it. The buried mandatory assessment of $185/month puts the true cost
+     at $1,385, outside it. So the fact reverses the decision for anyone
+     honouring the stated constraint, which makes it universally relevant rather
+     than relevant only to a subset.
+
+     A fade at the foot of the pane signals that more content exists. That is
+     deliberate: the probe should measure whether participants bother to read
+     on, never whether they could tell there was more. Failure must be about
+     effort, not discoverability.
+
+     Difficulty is not manipulated across the acquisition set. The criterion is
+     constant — one decision-relevant fact must be acquired — while cost differs
+     by mechanic. There are no discrete acquisition acts here, so scroll depth
+     is the cost measure rather than a click count.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "ACQ_SCROLL";
+  var VISIBLE_THRESHOLD = 0.6; // proportion of the target that must be in view
+
+  var t0 = Date.now();
+  var pane = document.getElementById("pane");
+  var paneWrap = document.getElementById("panewrap");
+  var target = document.querySelector('[data-target="fee"]');
+
+  var targetVisibleSince = null;
+
+  var state = {
+    probe: PROBE_ID,
+    mechanic: "scroll",
+    revealed: 0,             // 1 if the target passage entered view
+    target_seen: 0,
+    t_target_seen: null,     // ms to first sighting
+    time_target_visible: 0,  // accumulated ms with the target in view
+    max_scroll_pct: 0,       // furthest point reached, 0-100 — the cost measure
+    reached_bottom: 0,
+    scroll_events: 0,
+    t_first_interaction: null,
+    dwell_after_reveal: null,
+    response: null,          // "schedule" | "keep_looking"
+    response_changes: 0,
+    t_response: null
+  };
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) state.t_first_interaction = Date.now() - t0;
+  }
+
+  /* ---------------- scroll depth ---------------- */
+
+  function scrollPct() {
+    var max = pane.scrollHeight - pane.clientHeight;
+    if (max <= 0) return 100;
+    return Math.round((pane.scrollTop / max) * 1000) / 10;
+  }
+
+  pane.addEventListener("scroll", function () {
+    markInteraction();
+    state.scroll_events += 1;
+
+    var pct = scrollPct();
+    if (pct > state.max_scroll_pct) state.max_scroll_pct = pct;
+    if (pct >= 99) state.reached_bottom = 1;
+
+    paneWrap.classList.toggle("at-end", pct >= 99);
+    report();
+  });
+
+  /* ---------------- target exposure ---------------- */
+
+  function accrueVisible() {
+    if (targetVisibleSince !== null) {
+      var now = Date.now();
+      state.time_target_visible += now - targetVisibleSince;
+      targetVisibleSince = now;
+    }
+  }
+
+  if (window.IntersectionObserver) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        var showing = entry.isIntersecting && entry.intersectionRatio >= VISIBLE_THRESHOLD;
+
+        if (showing && targetVisibleSince === null) {
+          targetVisibleSince = Date.now();
+          if (!state.target_seen) {
+            state.target_seen = 1;
+            state.revealed = 1;
+            state.t_target_seen = Date.now() - t0;
+          }
+        } else if (!showing && targetVisibleSince !== null) {
+          state.time_target_visible += Date.now() - targetVisibleSince;
+          targetVisibleSince = null;
+        }
+        report();
+      });
+    }, { root: pane, threshold: [0, VISIBLE_THRESHOLD, 1] });
+
+    io.observe(target);
+  } else {
+    // Fallback for browsers without IntersectionObserver: geometric check.
+    pane.addEventListener("scroll", function () {
+      var tr = target.getBoundingClientRect();
+      var pr = pane.getBoundingClientRect();
+      var showing = tr.top < pr.bottom && tr.bottom > pr.top;
+      if (showing && !state.target_seen) {
+        state.target_seen = 1;
+        state.revealed = 1;
+        state.t_target_seen = Date.now() - t0;
+        targetVisibleSince = Date.now();
+      }
+    });
+  }
+
+  /* ---------------- response ---------------- */
+
+  document.querySelector(".choices").addEventListener("click", function (e) {
+    var btn = e.target.closest(".choicebtn");
+    if (!btn) return;
+
+    markInteraction();
+    accrueVisible();
+
+    var choice = btn.getAttribute("data-choice");
+    if (state.response !== null && state.response !== choice) state.response_changes += 1;
+
+    document.querySelectorAll(".choicebtn").forEach(function (b) {
+      b.classList.toggle("chosen", b === btn);
+    });
+
+    state.response = choice;
+    state.t_response = Date.now() - t0;
+    state.dwell_after_reveal =
+      state.t_target_seen === null ? null : state.t_response - state.t_target_seen;
+
+    report();
+  });
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(function () { accrueVisible(); reportHeight(); report(); }, 500);
+
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

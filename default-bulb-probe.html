@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lighting Decision</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.5; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .scenario { font-size: 15px; margin: 0 0 8px; }
+  .scenario p { margin: 0 0 11px; }
+
+  .bulbs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 20px 0 0; }
+  .card {
+    border: 1px solid #dfe3e7; border-radius: 7px; padding: 14px 15px; background: #fff;
+  }
+  .card.is-default { border-color: #c8ced4; background: #fafbfc; }
+  .card.chosen { border-color: #2f6fb0; box-shadow: 0 0 0 1px #2f6fb0 inset; background: #fff; }
+
+  .name { font-size: 15.5px; font-weight: 600; margin: 0 0 2px; }
+  .tag {
+    display: inline-block; font-size: 11.5px; font-weight: 600; letter-spacing: 0.03em;
+    text-transform: uppercase; color: #4a5158; background: #eceff2;
+    border-radius: 3px; padding: 2px 6px; margin-bottom: 8px;
+  }
+  .price { font-size: 18px; font-weight: 600; letter-spacing: -0.2px; }
+  .price span { font-size: 12.5px; font-weight: 400; color: #737b82; }
+
+  .panelbtn {
+    display: flex; align-items: center; gap: 6px; width: 100%;
+    margin-top: 9px; padding: 7px 10px;
+    border: 1px solid #c8ced4; border-radius: 5px; background: #fff;
+    font-family: inherit; font-size: 13px; font-weight: 500; color: #2f6fb0;
+    text-align: left; cursor: pointer;
+  }
+  .panelbtn:hover { border-color: #2f6fb0; background: #f2f7fc; }
+  .panelbtn .chev {
+    width: 7px; height: 7px; flex-shrink: 0; margin-left: auto;
+    border-right: 1.8px solid currentColor; border-bottom: 1.8px solid currentColor;
+    transform: rotate(45deg) translate(-2px, -2px);
+  }
+
+  .panel { display: none; margin-top: 8px; padding: 10px 11px;
+           background: #f7f9fb; border: 1px solid #e6ebf0; border-radius: 6px; }
+  .panel.open { display: block; }
+  .prow { display: flex; gap: 10px; font-size: 13px; padding: 2.5px 0; }
+  .plab { flex: 0 0 118px; color: #737b82; }
+  .pval { color: #1f2328; }
+
+  .decision { margin-top: 24px; padding-top: 18px; border-top: 1px solid #e6e8eb; }
+  .qtext { font-size: 15px; font-weight: 500; margin: 0 0 12px; }
+  .choices { display: flex; gap: 10px; flex-wrap: wrap; }
+  .choicebtn {
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    padding: 9px 18px; border-radius: 5px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+  }
+  .choicebtn:hover { border-color: #2f6fb0; color: #2f6fb0; background: #f2f7fc; }
+  .choicebtn.chosen { border-color: #2f6fb0; background: #2f6fb0; color: #fff; }
+
+  /* comprehension block, revealed only after the choice is made */
+  #comp { display: none; margin-top: 22px; padding-top: 18px; border-top: 1px solid #e6e8eb; }
+  #comp.open { display: block; }
+  .compq { margin-bottom: 16px; }
+  .compq p { font-size: 14.5px; margin: 0 0 8px; }
+  .opts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .opt {
+    font-family: inherit; font-size: 13.5px; padding: 7px 14px; border-radius: 5px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+  }
+  .opt:hover { border-color: #2f6fb0; color: #2f6fb0; }
+  .opt.picked { border-color: #2f6fb0; background: #2f6fb0; color: #fff; }
+
+  @media (max-width: 560px) { .bulbs { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="scenario" id="scenario"></div>
+
+  <div class="bulbs" id="bulbs"></div>
+
+  <div class="decision">
+    <p class="qtext" id="decisionQ"></p>
+    <div class="choices" id="choices"></div>
+  </div>
+
+  <div id="comp"></div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     DEFAULT-EFFECT PARADIGM WITH GATED INFORMATION
+
+     Scenario adapted from the Appendix of "Partitioning Default Effects"
+     (Johnson et al., SSRN 1352488). Original wording preserved: 18 bulbs,
+     $9 total for incandescent, $54 total for CFL, no labour charge to switch.
+
+     WHAT IS ADDED RELATIVE TO THE ORIGINAL. The original presents no attribute
+     table — bulb properties are left to prior knowledge, and purchase price is
+     stated in the scenario text. This version gates two panels per bulb:
+
+       "Bulb details" — wattage, brightness, lifespan, warm-up, disposal
+       "Cost details" — electricity per year, replacements, 9-year total
+
+     Purchase price stays in the scenario, as in the original, so the gating is
+     ADDITIVE rather than subtractive. The gated cost panel reverses the visible
+     ordering: incandescent is cheaper to buy and far more expensive to own.
+
+     Four gated panels, one click each, per the requested design.
+
+     KEY MEASURE. `first_bulb_investigated` is the behavioural analogue of the
+     paper's Order measure: query theory predicts defaults bias which option is
+     considered first. Card position is randomised independently of default
+     condition so that this is not confounded with left/right position.
+
+     CAUTION ON USE. Acquisition here is DOWNSTREAM of the default manipulation
+     — the default may itself reduce search. Screening on it conditions on a
+     post-treatment variable and biases the default effect. Use it as a mediator
+     or mechanism measure, and check condition balance before doing anything
+     else with it.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "DEF_BULB";
+
+  var BULBS = {
+    inc: {
+      key: "inc",
+      name: "Incandescent bulbs",
+      price: "$9",
+      priceNote: "total for all 18",
+      details: [
+        ["Power per bulb", "60 watts"],
+        ["Brightness", "800 lumens"],
+        ["Expected lifespan", "About 1,000 hours"],
+        ["Warm-up", "Full brightness immediately"],
+        ["Disposal", "Ordinary household waste"]
+      ],
+      cost: [
+        ["Purchase price", "$9 for all 18"],
+        ["Electricity per year", "About $142"],
+        ["Replacements in 9 years", "8 further sets"],
+        ["Estimated 9-year total", "About $1,360"]
+      ]
+    },
+    cfl: {
+      key: "cfl",
+      name: "Compact fluorescent (CFL) bulbs",
+      price: "$54",
+      priceNote: "total for all 18",
+      details: [
+        ["Power per bulb", "13 watts"],
+        ["Brightness", "800 lumens"],
+        ["Expected lifespan", "About 10,000 hours"],
+        ["Warm-up", "Reaches full brightness in under a minute"],
+        ["Disposal", "Contains mercury; recycle at a drop-off point"]
+      ],
+      cost: [
+        ["Purchase price", "$54 for all 18"],
+        ["Electricity per year", "About $31"],
+        ["Replacements in 9 years", "None expected"],
+        ["Estimated 9-year total", "About $330"]
+      ]
+    }
+  };
+
+  var COMP_ITEMS = [
+    { key: "purchase",
+      text: "Which bulb type costs more to purchase up front?",
+      opts: [["inc","Incandescent"],["cfl","CFL"],["same","About the same"]],
+      correct: "cfl" },
+    { key: "electricity",
+      text: "Which bulb type uses less electricity per year?",
+      opts: [["inc","Incandescent"],["cfl","CFL"],["same","About the same"]],
+      correct: "cfl" },
+    { key: "ninetotal",
+      text: "Which bulb type costs more in total over nine years?",
+      opts: [["inc","Incandescent"],["cfl","CFL"],["same","About the same"]],
+      correct: "inc" }
+  ];
+
+  /* ---------------- randomisation ---------------- */
+
+  function coin() { return Math.random() < 0.5; }
+
+  // Default condition: which bulb the contractor has already installed.
+  var defaultKey = coin() ? "inc" : "cfl";
+  var otherKey = defaultKey === "inc" ? "cfl" : "inc";
+
+  // Card position, randomised INDEPENDENTLY of condition so that
+  // first_bulb_investigated is not confounded with left/right position.
+  var leftKey = coin() ? "inc" : "cfl";
+  var displayOrder = [leftKey, leftKey === "inc" ? "cfl" : "inc"];
+
+  /* ---------------- state ---------------- */
+
+  var t0 = Date.now();
+  var revealOrder = [];   // ["inc:details", "cfl:cost", ...] first opens only
+
+  var state = {
+    probe: PROBE_ID,
+    default_bulb: defaultKey,
+    display_left: leftKey,
+    revealed_details_inc: 0,
+    revealed_details_cfl: 0,
+    revealed_cost_inc: 0,
+    revealed_cost_cfl: 0,
+    n_panels_revealed: 0,          // 0-4
+    acquisition_cost: 0,
+    panels_revealed: null,         // sequence of first opens
+    panel_clicks: 0,               // includes re-collapsing
+    first_panel: null,
+    first_bulb_investigated: null, // behavioural analogue of the Order measure
+    revealed_all: 0,
+    revealed_both_cost: 0,         // both cost panels — the comparative criterion
+    t_first_interaction: null,
+    t_first_reveal: null,
+    dwell_after_reveal: null,
+    n_panels_at_choice: 0,
+    choice: null,                  // "keep_default" | "switch"
+    chosen_bulb: null,             // "inc" | "cfl"
+    choice_changes: 0,
+    t_choice: null,
+    comp_purchase: null, comp_electricity: null, comp_ninetotal: null,
+    comp_n_correct: 0,
+    comp_answered: 0,
+    t_comp_done: null
+  };
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) state.t_first_interaction = Date.now() - t0;
+  }
+
+  /* ---------------- scenario text ---------------- */
+
+  var defName = BULBS[defaultKey].name;
+  var othName = BULBS[otherKey].name;
+  var defPrice = BULBS[defaultKey].price;
+  var othPrice = BULBS[otherKey].price;
+
+  document.getElementById("scenario").innerHTML =
+    '<p>Imagine that you are undergoing a significant amount of remodeling on your ' +
+    'home. On the last day of work the contractors clean up all leftover dust, dirt ' +
+    'and paint. Before leaving, one of the workers tells you that the head contractor ' +
+    'will be back tomorrow for a final inspection of the house.</p>' +
+    '<p>Tomorrow evening the head contractor comes by your home to discuss the last ' +
+    'aspects of the addition. After showing you one of the newly installed light ' +
+    'fixtures he mentions that all 18 bulbs in the new fixtures have been outfitted ' +
+    'with <strong>' + defName + '</strong>, which cost a ' +
+    'total of ' + defPrice + '. He then asks you if these bulbs are ok, or if you ' +
+    'would prefer <strong>' + othName + '</strong> which will cost ' + othPrice + '. ' +
+    'If you prefer to switch, he will send over a contractor to switch the bulbs ' +
+    'tomorrow. There will be no labor charge for switching the bulbs.</p>';
+
+  /* ---------------- bulb cards ---------------- */
+
+  function rows(pairs) {
+    return pairs.map(function (p) {
+      return '<div class="prow"><span class="plab">' + p[0] +
+             '</span><span class="pval">' + p[1] + '</span></div>';
+    }).join("");
+  }
+
+  document.getElementById("bulbs").innerHTML = displayOrder.map(function (k) {
+    var b = BULBS[k];
+    var isDefault = k === defaultKey;
+    return '<div class="card' + (isDefault ? ' is-default' : '') + '" data-bulb="' + k + '">' +
+             (isDefault ? '<span class="tag">Already installed</span>' : '<span class="tag">&nbsp;</span>') +
+             '<p class="name">' + b.name + '</p>' +
+             '<div class="price">' + b.price + ' <span>' + b.priceNote + '</span></div>' +
+             '<button type="button" class="panelbtn" data-panel="details" ' +
+               'aria-label="Show bulb details for ' + b.name + '">' +
+               'Bulb details<span class="chev"></span></button>' +
+             '<div class="panel" data-for="details">' + rows(b.details) + '</div>' +
+             '<button type="button" class="panelbtn" data-panel="cost" ' +
+               'aria-label="Show cost details for ' + b.name + '">' +
+               'Cost details<span class="chev"></span></button>' +
+             '<div class="panel" data-for="cost">' + rows(b.cost) + '</div>' +
+           '</div>';
+  }).join("");
+
+  /* ---------------- decision ---------------- */
+
+  document.getElementById("decisionQ").textContent =
+    "Would you like to keep the bulbs that are already installed, or switch?";
+
+  document.getElementById("choices").innerHTML =
+    '<button type="button" class="choicebtn" data-choice="keep_default">Keep the ' +
+      defName.toLowerCase() + '</button>' +
+    '<button type="button" class="choicebtn" data-choice="switch">Switch to the ' +
+      othName.toLowerCase() + '</button>';
+
+  /* ---------------- panel reveals ---------------- */
+
+  document.getElementById("bulbs").addEventListener("click", function (e) {
+    var btn = e.target.closest(".panelbtn");
+    if (!btn) return;
+
+    var card = btn.closest(".card");
+    var bulb = card.getAttribute("data-bulb");
+    var which = btn.getAttribute("data-panel");
+    var panel = card.querySelector('.panel[data-for="' + which + '"]');
+    var id = bulb + ":" + which;
+
+    markInteraction();
+    state.panel_clicks += 1;
+    panel.classList.toggle("open");
+
+    if (revealOrder.indexOf(id) === -1) {
+      revealOrder.push(id);
+      state["revealed_" + which + "_" + bulb] = 1;
+
+      if (state.first_panel === null) {
+        state.first_panel = id;
+        state.first_bulb_investigated = bulb;
+        state.t_first_reveal = Date.now() - t0;
+      }
+    }
+
+    state.n_panels_revealed = revealOrder.length;
+    state.acquisition_cost = revealOrder.length;
+    state.panels_revealed = revealOrder.join(",");
+    state.revealed_all = revealOrder.length === 4 ? 1 : 0;
+    state.revealed_both_cost =
+      (state.revealed_cost_inc && state.revealed_cost_cfl) ? 1 : 0;
+
+    report();
+    reportHeight();
+  });
+
+  /* ---------------- choice ---------------- */
+
+  document.getElementById("choices").addEventListener("click", function (e) {
+    var btn = e.target.closest(".choicebtn");
+    if (!btn) return;
+
+    markInteraction();
+    var choice = btn.getAttribute("data-choice");
+    if (state.choice !== null && state.choice !== choice) state.choice_changes += 1;
+
+    document.querySelectorAll(".choicebtn").forEach(function (b) {
+      b.classList.toggle("chosen", b === btn);
+    });
+    var chosenBulb = choice === "keep_default" ? defaultKey : otherKey;
+    document.querySelectorAll(".card").forEach(function (c) {
+      c.classList.toggle("chosen", c.getAttribute("data-bulb") === chosenBulb);
+    });
+
+    state.choice = choice;
+    state.chosen_bulb = chosenBulb;
+    state.t_choice = Date.now() - t0;
+    state.n_panels_at_choice = revealOrder.length;
+    state.dwell_after_reveal =
+      state.t_first_reveal === null ? null : state.t_choice - state.t_first_reveal;
+
+    showComprehension();
+    report();
+    reportHeight();
+  });
+
+  /* ---------------- comprehension items ----------------
+     Shown only AFTER the choice, so they cannot cue attention to the
+     attributes before the dependent variable is recorded. Panels remain on
+     screen, so this measures comprehension given availability rather than
+     retention — if the panels were hidden this would become a retrieval
+     probe, which is a different link. */
+
+  var compEl = document.getElementById("comp");
+  var compShown = false;
+
+  function showComprehension() {
+    if (compShown) return;
+    compShown = true;
+
+    compEl.innerHTML =
+      '<p style="font-size:13px;color:#737b82;margin:0 0 14px">' +
+      'Before you continue, a few quick questions about the two options.</p>' +
+      COMP_ITEMS.map(function (q) {
+        return '<div class="compq" data-q="' + q.key + '">' +
+                 '<p>' + q.text + '</p>' +
+                 '<div class="opts">' + q.opts.map(function (o) {
+                   return '<button type="button" class="opt" data-val="' + o[0] + '">' +
+                          o[1] + '</button>';
+                 }).join("") + '</div>' +
+               '</div>';
+      }).join("");
+    compEl.classList.add("open");
+  }
+
+  compEl.addEventListener("click", function (e) {
+    var opt = e.target.closest(".opt");
+    if (!opt) return;
+
+    var block = opt.closest(".compq");
+    var key = block.getAttribute("data-q");
+    block.querySelectorAll(".opt").forEach(function (b) {
+      b.classList.toggle("picked", b === opt);
+    });
+    state["comp_" + key] = opt.getAttribute("data-val");
+
+    var answered = 0, correct = 0;
+    COMP_ITEMS.forEach(function (q) {
+      var a = state["comp_" + q.key];
+      if (a !== null) { answered += 1; if (a === q.correct) correct += 1; }
+    });
+    state.comp_answered = answered;
+    state.comp_n_correct = correct;
+    if (answered === COMP_ITEMS.length) state.t_comp_done = Date.now() - t0;
+
+    report();
+    reportHeight();
+  });
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(reportHeight, 500);
+
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

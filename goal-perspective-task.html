@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Appliance Choices</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.5; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  #scenario { margin: 0 0 20px; }
+  #scenario p { margin: 0 0 11px; }
+  #scenario p:last-child { margin-bottom: 0; }
+
+  .progress {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12.5px; color: #737b82;
+    padding-bottom: 8px; border-bottom: 1px solid #e6e8eb; margin-bottom: 16px;
+  }
+  .dots { display: flex; gap: 5px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #dfe3e7; }
+  .dot.done { background: #9fb8d1; }
+  .dot.current { background: #2f6fb0; }
+
+  /* one item at a time, sliding horizontally */
+  .viewport { overflow: hidden; }
+  .track { display: flex; align-items: flex-start; transition: transform 0.28s ease; }
+  .slide { flex: 0 0 100%; min-width: 100%; padding: 0 1px; }
+
+  .tname { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
+
+  .opts2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .ocard {
+    border: 1px solid #dfe3e7; border-radius: 7px; padding: 13px 14px;
+    background: #fff; cursor: pointer;
+  }
+  .ocard:hover { border-color: #2f6fb0; }
+  .ocard.picked { border-color: #2f6fb0; box-shadow: 0 0 0 1px #2f6fb0 inset; }
+  .oname { font-size: 14px; font-weight: 600; margin: 0 0 8px; }
+  .orow { display: flex; gap: 8px; font-size: 12.5px; padding: 2px 0; }
+  .olab { flex: 0 0 108px; color: #737b82; }
+  .oval { color: #1f2328; }
+
+  .nav { display: flex; justify-content: space-between; gap: 10px; margin-top: 20px; }
+  .navbtn {
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    padding: 8px 20px; border-radius: 5px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+  }
+  .navbtn:hover:not(:disabled) { border-color: #2f6fb0; color: #2f6fb0; }
+  .navbtn:disabled { opacity: 0.4; cursor: default; }
+  .navbtn.primary { border-color: #2f6fb0; background: #2f6fb0; color: #fff; }
+  .navbtn.primary:hover:not(:disabled) { background: #275e97; color: #fff; }
+  .navbtn.primary:disabled { background: #b7c9db; border-color: #b7c9db; color: #fff; opacity: 1; }
+
+  #recall { display: none; }
+  #recall.open { display: block; }
+  #recall p { font-size: 15px; margin: 0 0 12px; }
+  .rops { display: flex; gap: 8px; flex-wrap: wrap; }
+  .rop {
+    font-family: inherit; font-size: 13.5px; padding: 8px 14px; border-radius: 5px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+  }
+  .rop:hover { border-color: #2f6fb0; color: #2f6fb0; }
+  .rop.picked { border-color: #2f6fb0; background: #2f6fb0; color: #fff; }
+
+  @media (max-width: 560px) { .opts2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="scenario"></div>
+
+  <div id="task">
+    <div class="progress">
+      <span id="counter"></span>
+      <span class="dots" id="dots"></span>
+    </div>
+
+    <div class="viewport"><div class="track" id="track"></div></div>
+
+    <div class="nav">
+      <button type="button" class="navbtn" id="backBtn">Back</button>
+      <button type="button" class="navbtn primary" id="nextBtn">Next</button>
+    </div>
+  </div>
+
+  <div id="recall"></div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     PERSPECTIVE-ADOPTION PROBE
+
+     Tests whether a participant can generate judgments from an assigned
+     standpoint rather than their own. Their own orientation is measured
+     upstream by the pump preference task: choosing the efficient pump implies
+     an environmental orientation, choosing the basic pump implies an
+     upfront-price orientation.
+
+     CONGRUENCE IS THE DESIGN. Assigning a goal that matches the participant's
+     own orientation cannot test adoption — they would answer consistently by
+     doing what they would do anyway. Assigning only incongruent goals cannot
+     separate adoption from noise, because there is no baseline. Both cells are
+     needed, so assignment is CROSSED with measured orientation by default.
+
+     FIRST-PERSON FRAMING. Participants imagine holding the goal themselves.
+     This is the stricter reading of perspective adoption: the response must be
+     generated from the assigned standpoint, not computed against an external
+     criterion.
+
+     THE RESIDUAL CONFOUND, AND WHAT LIMITS IT. A participant with strong
+     environmental commitments, asked to hold a price goal, may resist rather
+     than fail — and resistance looks identical to inability. Both goals are
+     therefore framed as SITUATIONS rather than dispositions: a budget already
+     committed, or an efficiency target already set. A situation can be
+     occupied without conceding anything about oneself, which is not true of
+     "you are someone who values price."
+
+     Interpretively: a response generated from the participant's own standpoint
+     rather than the assigned one is a perspective-adoption failure whether the
+     cause was could-not or would-not. The probe cannot separate those, so
+     incongruent failures are not evidence of incapacity.
+
+     ONE ITEM PER SCREEN. Items advance in a horizontal carousel while the
+     scenario stays fixed above, so the assigned standpoint is continuously
+     available and cannot decay into a memory test. The recall item at the end
+     hides the scenario first, which is what makes it a retention measure.
+
+     NO GATED INFORMATION. All attributes are visible. This probe targets
+     standpoint, not acquisition; gating would confound the two links.
+
+     GOAL SOURCE. Reads `goal` from the query string, e.g.
+       goal-perspective-task.html?goal=environmental&own=price
+     In Qualtrics, pipe embedded data into the iframe src. If `goal` is absent
+     it is derived from `own` using ASSIGNMENT_MODE; if both are absent it is
+     randomised, so the file is testable standalone.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "GOAL_PERSP";
+
+  // "crossed" — random assignment, yielding both congruent and incongruent
+  // "incongruent" — always the goal opposite the participant's own
+  // "congruent" — always the participant's own goal
+  var ASSIGNMENT_MODE = "crossed";
+
+  /* Situational rather than dispositional, for the reason given above. */
+  var BRIEFS = {
+    price: "A large unexpected expense a few months ago has left you with very " +
+           "little room this year, and whatever you spend has to come out of a " +
+           "fixed budget you have already set. What matters to you here is " +
+           "keeping the purchase price as low as you can.",
+    environmental: "You are committed to cutting your household's energy use " +
+           "this year, and you expect to keep these appliances for a long time. " +
+           "What matters to you here is keeping energy use as low as you can."
+  };
+
+  var RECALL_OPTS = [
+    ["price", "Keeping the purchase price low"],
+    ["environmental", "Keeping energy use low"],
+    ["speed", "Getting the fastest delivery"],
+    ["brand", "Sticking to one brand"]
+  ];
+
+  /* Each trial: one option optimal under a price goal, one under an
+     environmental goal. Neither dominates — the cheaper model always costs
+     more to run, and the efficient model always costs more to buy. */
+  var TRIALS = [
+    { item: "Dishwasher",
+      price: { name: "Model 200", buy: "$420", energy: "320 kWh per year", run: "About $51 per year" },
+      env:   { name: "Model 450", buy: "$680", energy: "180 kWh per year", run: "About $29 per year" } },
+    { item: "Water heater",
+      price: { name: "Model 110", buy: "$650", energy: "4,100 kWh per year", run: "About $656 per year" },
+      env:   { name: "Model 380", buy: "$1,150", energy: "2,200 kWh per year", run: "About $352 per year" } },
+    { item: "Washing machine",
+      price: { name: "Model 60", buy: "$530", energy: "210 kWh per year", run: "About $34 per year" },
+      env:   { name: "Model 290", buy: "$840", energy: "95 kWh per year", run: "About $15 per year" } },
+    { item: "Refrigerator",
+      price: { name: "Model 520", buy: "$780", energy: "590 kWh per year", run: "About $94 per year" },
+      env:   { name: "Model 700", buy: "$1,240", energy: "340 kWh per year", run: "About $54 per year" } }
+  ];
+
+  /* ---------------- goal assignment ---------------- */
+
+  function qparam(k) {
+    var m = new RegExp("[?&]" + k + "=([^&]*)").exec(window.location.search);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+  function coin() { return Math.random() < 0.5; }
+  function flip(g) { return g === "price" ? "environmental" : "price"; }
+
+  var ownGoal = qparam("own");
+  if (ownGoal !== "price" && ownGoal !== "environmental") ownGoal = null;
+
+  var assignedGoal = qparam("goal");
+  if (assignedGoal !== "price" && assignedGoal !== "environmental") {
+    if (ownGoal && ASSIGNMENT_MODE === "incongruent")    assignedGoal = flip(ownGoal);
+    else if (ownGoal && ASSIGNMENT_MODE === "congruent") assignedGoal = ownGoal;
+    else assignedGoal = coin() ? "price" : "environmental";
+  }
+
+  var congruent = ownGoal === null ? null : (assignedGoal === ownGoal ? 1 : 0);
+
+  /* ---------------- state ---------------- */
+
+  var t0 = Date.now();
+  var state = {
+    probe: PROBE_ID,
+    assigned_goal: assignedGoal,
+    own_goal: ownGoal,
+    congruent: congruent,
+    goal_source: qparam("goal") ? "url" : (ownGoal ? ASSIGNMENT_MODE : "random"),
+    side_order: null,
+    choices: null,
+    n_goal_consistent: 0,
+    n_answered: 0,
+    n_own_goal_consistent: 0,
+    trial_dwell: null,          // ms spent on each item, in item order
+    n_back: 0,                  // times they navigated backwards
+    max_item_reached: 0,
+    t_first_interaction: null,
+    t_last_choice: null,
+    goal_recall: null,
+    goal_recall_correct: null,
+    t_recall: null
+  };
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) state.t_first_interaction = Date.now() - t0;
+  }
+
+  /* ---------------- scenario ---------------- */
+
+  var scenarioEl = document.getElementById("scenario");
+  scenarioEl.innerHTML =
+    '<p>Imagine that you are replacing several appliances in your home this year. ' +
+    BRIEFS[assignedGoal] + '</p>' +
+    '<p>For each item, choose the model you would pick.</p>';
+
+  /* ---------------- render items ---------------- */
+
+  var sideOrder = TRIALS.map(function () { return coin() ? "price" : "env"; });
+  state.side_order = sideOrder.join(",");
+
+  function optCard(o, kind) {
+    return '<div class="ocard" data-kind="' + kind + '">' +
+             '<p class="oname">' + o.name + '</p>' +
+             '<div class="orow"><span class="olab">Purchase price</span><span class="oval">' + o.buy + '</span></div>' +
+             '<div class="orow"><span class="olab">Energy use</span><span class="oval">' + o.energy + '</span></div>' +
+             '<div class="orow"><span class="olab">Running cost</span><span class="oval">' + o.run + '</span></div>' +
+           '</div>';
+  }
+
+  document.getElementById("track").innerHTML = TRIALS.map(function (tr, i) {
+    var a = sideOrder[i] === "price" ? optCard(tr.price, "price") : optCard(tr.env, "env");
+    var b = sideOrder[i] === "price" ? optCard(tr.env, "env") : optCard(tr.price, "price");
+    return '<div class="slide" data-trial="' + i + '">' +
+             '<p class="tname">' + tr.item + '</p>' +
+             '<div class="opts2">' + a + b + '</div>' +
+           '</div>';
+  }).join("");
+
+  document.getElementById("dots").innerHTML =
+    TRIALS.map(function () { return '<span class="dot"></span>'; }).join("");
+
+  /* ---------------- carousel ---------------- */
+
+  var track = document.getElementById("track");
+  var backBtn = document.getElementById("backBtn");
+  var nextBtn = document.getElementById("nextBtn");
+  var picks = new Array(TRIALS.length).fill(null);
+  var dwell = new Array(TRIALS.length).fill(0);
+  var index = 0;
+  var enteredAt = Date.now();
+
+  function accrue() {
+    var now = Date.now();
+    dwell[index] += now - enteredAt;
+    enteredAt = now;
+    state.trial_dwell = dwell.join(",");
+  }
+
+  function render() {
+    track.style.transform = "translateX(-" + (index * 100) + "%)";
+    document.getElementById("counter").textContent =
+      "Item " + (index + 1) + " of " + TRIALS.length;
+    document.querySelectorAll(".dot").forEach(function (d, i) {
+      d.classList.toggle("current", i === index);
+      d.classList.toggle("done", i !== index && picks[i] !== null);
+    });
+    backBtn.disabled = index === 0;
+    nextBtn.disabled = picks[index] === null;
+    nextBtn.textContent = index === TRIALS.length - 1 ? "Continue" : "Next";
+    if (index > state.max_item_reached) state.max_item_reached = index;
+    reportHeight();
+  }
+
+  function goTo(i) {
+    accrue();
+    index = i;
+    enteredAt = Date.now();
+    render();
+    report();
+  }
+
+  backBtn.addEventListener("click", function () {
+    if (index === 0) return;
+    markInteraction();
+    state.n_back += 1;
+    goTo(index - 1);
+  });
+
+  nextBtn.addEventListener("click", function () {
+    markInteraction();
+    if (index < TRIALS.length - 1) { goTo(index + 1); return; }
+    accrue();
+    showRecall();
+    report();
+  });
+
+  /* ---------------- responses ---------------- */
+
+  track.addEventListener("click", function (e) {
+    var card = e.target.closest(".ocard");
+    if (!card) return;
+
+    markInteraction();
+    var slide = card.closest(".slide");
+    var idx = parseInt(slide.getAttribute("data-trial"), 10);
+
+    slide.querySelectorAll(".ocard").forEach(function (c) {
+      c.classList.toggle("picked", c === card);
+    });
+    picks[idx] = card.getAttribute("data-kind");
+
+    var answered = 0, consistent = 0, ownConsistent = 0;
+    var wantAssigned = assignedGoal === "price" ? "price" : "env";
+    var wantOwn = ownGoal === null ? null : (ownGoal === "price" ? "price" : "env");
+
+    picks.forEach(function (p) {
+      if (p === null) return;
+      answered += 1;
+      if (p === wantAssigned) consistent += 1;
+      if (wantOwn !== null && p === wantOwn) ownConsistent += 1;
+    });
+
+    state.choices = picks.join(",");
+    state.n_answered = answered;
+    state.n_goal_consistent = consistent;
+    state.n_own_goal_consistent = ownConsistent;
+    state.t_last_choice = Date.now() - t0;
+
+    render();
+    report();
+  });
+
+  /* ---------------- goal recall ----------------
+     The scenario is hidden first, so this measures retention of the assigned
+     standpoint rather than whether it can be reread. */
+
+  var recallEl = document.getElementById("recall");
+  var recallShown = false;
+
+  function showRecall() {
+    if (recallShown) return;
+    recallShown = true;
+
+    scenarioEl.style.display = "none";
+    document.getElementById("task").style.display = "none";
+
+    recallEl.innerHTML =
+      '<p>Before you finish &mdash; in the situation you were picturing, what ' +
+      'mattered most to you?</p>' +
+      '<div class="rops">' + RECALL_OPTS.map(function (o) {
+        return '<button type="button" class="rop" data-val="' + o[0] + '">' + o[1] + '</button>';
+      }).join("") + '</div>';
+    recallEl.classList.add("open");
+    reportHeight();
+  }
+
+  recallEl.addEventListener("click", function (e) {
+    var b = e.target.closest(".rop");
+    if (!b) return;
+    recallEl.querySelectorAll(".rop").forEach(function (x) {
+      x.classList.toggle("picked", x === b);
+    });
+    state.goal_recall = b.getAttribute("data-val");
+    state.goal_recall_correct = state.goal_recall === assignedGoal ? 1 : 0;
+    state.t_recall = Date.now() - t0;
+    report();
+    reportHeight();
+  });
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(function () { accrue(); reportHeight(); }, 1000);
+
+  render();
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Client Recommendations</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.5; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .intro { margin: 0 0 16px; }
+  .intro p { margin: 0 0 11px; }
+
+  .brief {
+    border: 1px solid #d8dce1; border-left: 3px solid #2f6fb0; border-radius: 6px;
+    padding: 12px 14px; margin-bottom: 20px; background: #f7f9fb;
+  }
+  .brief .lab {
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase; color: #737b82; margin: 0 0 4px;
+  }
+  .brief p { margin: 0; font-size: 14.5px; }
+
+  .trial { border-top: 1px solid #e6e8eb; padding-top: 18px; margin-top: 20px; }
+  .trial:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+  .tname { font-size: 14px; font-weight: 600; margin: 0 0 10px; }
+
+  .opts2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .ocard {
+    border: 1px solid #dfe3e7; border-radius: 7px; padding: 12px 13px;
+    background: #fff; cursor: pointer;
+  }
+  .ocard:hover { border-color: #2f6fb0; }
+  .ocard.picked { border-color: #2f6fb0; box-shadow: 0 0 0 1px #2f6fb0 inset; }
+  .oname { font-size: 14px; font-weight: 600; margin: 0 0 7px; }
+  .orow { display: flex; gap: 8px; font-size: 12.5px; padding: 2px 0; }
+  .olab { flex: 0 0 108px; color: #737b82; }
+  .oval { color: #1f2328; }
+
+  #recall { display: none; margin-top: 26px; padding-top: 18px; border-top: 1px solid #e6e8eb; }
+  #recall.open { display: block; }
+  #recall p { font-size: 14.5px; margin: 0 0 10px; }
+  .rops { display: flex; gap: 8px; flex-wrap: wrap; }
+  .rop {
+    font-family: inherit; font-size: 13.5px; padding: 8px 14px; border-radius: 5px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+  }
+  .rop:hover { border-color: #2f6fb0; color: #2f6fb0; }
+  .rop.picked { border-color: #2f6fb0; background: #2f6fb0; color: #fff; }
+
+  @media (max-width: 560px) { .opts2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="intro">
+    <p>
+      You work at a home-improvement store, helping customers choose appliances
+      for a renovation. A customer has come in with a list of things they need
+      to replace and has told you what matters most to them.
+    </p>
+    <p>
+      For each item below, recommend the model that best serves what this
+      customer has told you.
+    </p>
+  </div>
+
+  <div class="brief">
+    <p class="lab">What the customer told you</p>
+    <p id="briefText"></p>
+  </div>
+
+  <div id="trials"></div>
+
+  <div id="recall"></div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     PERSPECTIVE-ADOPTION PROBE
+
+     Tests whether a participant can generate judgments from an assigned
+     standpoint rather than their own. The participant's own orientation is
+     measured upstream by the pump preference task: choosing the efficient
+     pump implies an environmental orientation, choosing the basic pump
+     implies an upfront-price orientation.
+
+     CONGRUENCE IS THE DESIGN. Assigning a goal that matches the participant's
+     own orientation cannot test adoption — they would produce goal-consistent
+     recommendations by simply doing what they would do anyway. Assigning only
+     incongruent goals cannot distinguish adoption from noise, because there is
+     no baseline. Both cells are needed, so assignment is CROSSED with the
+     measured orientation by default.
+
+     ADVISORY FRAMING AVOIDS A VALUES CONFOUND. Participants recommend for a
+     customer who has STATED a priority, rather than deciding what is right.
+     If the task asked what they personally would do, a participant with strong
+     environmental values could understand the price goal perfectly and refuse
+     to serve it — which would look identical to failing to adopt the
+     perspective. Applying someone else's stated criterion separates the two.
+
+     NO GATED INFORMATION HERE. All attributes are visible. This probe targets
+     standpoint, not acquisition; gating would confound the two links.
+
+     GOAL SOURCE. Reads `goal` from the query string, e.g.
+       goal-perspective-task.html?goal=environmental&own=price
+     In Qualtrics, pipe embedded data into the iframe src. If `goal` is absent
+     it is derived from `own` using ASSIGNMENT_MODE; if both are absent it is
+     randomised, so the file is testable standalone.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "GOAL_PERSP";
+
+  // "crossed"      — random assignment, yielding both congruent and incongruent
+  // "incongruent"  — always assign the goal opposite to the participant's own
+  // "congruent"    — always assign the participant's own goal
+  var ASSIGNMENT_MODE = "crossed";
+
+  var BRIEFS = {
+    price: "“Keep the purchase price as low as you can. What it costs me " +
+           "today is what matters — that is the budget I have to work with.”",
+    environmental: "“Keep the energy use as low as you can. Cutting the " +
+           "environmental impact is what matters to me here.”"
+  };
+
+  var RECALL_OPTS = [
+    ["price", "Keeping the purchase price low"],
+    ["environmental", "Keeping energy use low"],
+    ["speed", "Getting the fastest delivery"],
+    ["brand", "Sticking to one brand"]
+  ];
+
+  /* Each trial: one option optimal under a price goal, one under an
+     environmental goal. Neither dominates — the cheaper model always costs
+     more to run, and the efficient model always costs more to buy. */
+  var TRIALS = [
+    { item: "Dishwasher",
+      price: { name: "Model 200", buy: "$420", energy: "320 kWh per year", run: "About $51 per year" },
+      env:   { name: "Model 450", buy: "$680", energy: "180 kWh per year", run: "About $29 per year" } },
+    { item: "Water heater",
+      price: { name: "Model 110", buy: "$650", energy: "4,100 kWh per year", run: "About $656 per year" },
+      env:   { name: "Model 380", buy: "$1,150", energy: "2,200 kWh per year", run: "About $352 per year" } },
+    { item: "Washing machine",
+      price: { name: "Model 60", buy: "$530", energy: "210 kWh per year", run: "About $34 per year" },
+      env:   { name: "Model 290", buy: "$840", energy: "95 kWh per year", run: "About $15 per year" } },
+    { item: "Refrigerator",
+      price: { name: "Model 520", buy: "$780", energy: "590 kWh per year", run: "About $94 per year" },
+      env:   { name: "Model 700", buy: "$1,240", energy: "340 kWh per year", run: "About $54 per year" } }
+  ];
+
+  /* ---------------- goal assignment ---------------- */
+
+  function qparam(k) {
+    var m = new RegExp("[?&]" + k + "=([^&]*)").exec(window.location.search);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+  function coin() { return Math.random() < 0.5; }
+  function flip(g) { return g === "price" ? "environmental" : "price"; }
+
+  var ownGoal = qparam("own");                     // may be null
+  if (ownGoal !== "price" && ownGoal !== "environmental") ownGoal = null;
+
+  var assignedGoal = qparam("goal");
+  if (assignedGoal !== "price" && assignedGoal !== "environmental") {
+    if (ownGoal && ASSIGNMENT_MODE === "incongruent")      assignedGoal = flip(ownGoal);
+    else if (ownGoal && ASSIGNMENT_MODE === "congruent")   assignedGoal = ownGoal;
+    else assignedGoal = coin() ? "price" : "environmental";
+  }
+
+  var congruent = ownGoal === null ? null : (assignedGoal === ownGoal ? 1 : 0);
+
+  /* ---------------- state ---------------- */
+
+  var t0 = Date.now();
+  var state = {
+    probe: PROBE_ID,
+    assigned_goal: assignedGoal,
+    own_goal: ownGoal,
+    congruent: congruent,           // 1 = assigned own goal, 0 = assigned the other
+    goal_source: qparam("goal") ? "url" : (ownGoal ? ASSIGNMENT_MODE : "random"),
+    side_order: null,               // which side the goal-consistent option sat on
+    choices: null,                  // e.g. "price,env,env,price" in trial order
+    n_goal_consistent: 0,           // 0-4 — the perspective-adoption score
+    n_answered: 0,
+    n_own_goal_consistent: 0,       // how often they answered per their OWN goal
+    t_first_interaction: null,
+    t_last_choice: null,
+    goal_recall: null,              // what they said the customer asked for
+    goal_recall_correct: null,
+    t_recall: null
+  };
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) state.t_first_interaction = Date.now() - t0;
+  }
+
+  /* ---------------- render ---------------- */
+
+  document.getElementById("briefText").textContent = BRIEFS[assignedGoal];
+
+  var sideOrder = TRIALS.map(function () { return coin() ? "price" : "env"; });
+  state.side_order = sideOrder.join(",");
+
+  function optCard(o, kind) {
+    return '<div class="ocard" data-kind="' + kind + '">' +
+             '<p class="oname">' + o.name + '</p>' +
+             '<div class="orow"><span class="olab">Purchase price</span><span class="oval">' + o.buy + '</span></div>' +
+             '<div class="orow"><span class="olab">Energy use</span><span class="oval">' + o.energy + '</span></div>' +
+             '<div class="orow"><span class="olab">Running cost</span><span class="oval">' + o.run + '</span></div>' +
+           '</div>';
+  }
+
+  document.getElementById("trials").innerHTML = TRIALS.map(function (tr, i) {
+    var first = sideOrder[i] === "price" ? optCard(tr.price, "price") : optCard(tr.env, "env");
+    var second = sideOrder[i] === "price" ? optCard(tr.env, "env") : optCard(tr.price, "price");
+    return '<div class="trial" data-trial="' + i + '">' +
+             '<p class="tname">' + tr.item + '</p>' +
+             '<div class="opts2">' + first + second + '</div>' +
+           '</div>';
+  }).join("");
+
+  /* ---------------- responses ---------------- */
+
+  var picks = new Array(TRIALS.length).fill(null);
+
+  document.getElementById("trials").addEventListener("click", function (e) {
+    var card = e.target.closest(".ocard");
+    if (!card) return;
+
+    markInteraction();
+    var trial = card.closest(".trial");
+    var idx = parseInt(trial.getAttribute("data-trial"), 10);
+
+    trial.querySelectorAll(".ocard").forEach(function (c) {
+      c.classList.toggle("picked", c === card);
+    });
+    picks[idx] = card.getAttribute("data-kind");
+
+    var answered = 0, consistent = 0, ownConsistent = 0;
+    var wantAssigned = assignedGoal === "price" ? "price" : "env";
+    var wantOwn = ownGoal === null ? null : (ownGoal === "price" ? "price" : "env");
+
+    picks.forEach(function (p) {
+      if (p === null) return;
+      answered += 1;
+      if (p === wantAssigned) consistent += 1;
+      if (wantOwn !== null && p === wantOwn) ownConsistent += 1;
+    });
+
+    state.choices = picks.join(",");
+    state.n_answered = answered;
+    state.n_goal_consistent = consistent;
+    state.n_own_goal_consistent = ownConsistent;
+    state.t_last_choice = Date.now() - t0;
+
+    if (answered === TRIALS.length) showRecall();
+    report();
+    reportHeight();
+  });
+
+  /* ---------------- goal recall ----------------
+     Asked only after all trials, with the brief hidden, so it tests whether
+     the assigned standpoint was retained rather than whether it can be reread. */
+
+  var recallEl = document.getElementById("recall");
+  var recallShown = false;
+
+  function showRecall() {
+    if (recallShown) return;
+    recallShown = true;
+
+    document.querySelector(".brief").style.display = "none";
+
+    recallEl.innerHTML =
+      '<p>Before you finish &mdash; what did the customer say mattered most to them?</p>' +
+      '<div class="rops">' + RECALL_OPTS.map(function (o) {
+        return '<button type="button" class="rop" data-val="' + o[0] + '">' + o[1] + '</button>';
+      }).join("") + '</div>';
+    recallEl.classList.add("open");
+  }
+
+  recallEl.addEventListener("click", function (e) {
+    var b = e.target.closest(".rop");
+    if (!b) return;
+    recallEl.querySelectorAll(".rop").forEach(function (x) {
+      x.classList.toggle("picked", x === b);
+    });
+    state.goal_recall = b.getAttribute("data-val");
+    state.goal_recall_correct = state.goal_recall === assignedGoal ? 1 : 0;
+    state.t_recall = Date.now() - t0;
+    report();
+    reportHeight();
+  });
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(reportHeight, 500);
+
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

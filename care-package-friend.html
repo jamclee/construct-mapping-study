@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build a Box</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.5; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  #scenario { margin: 0 0 18px; }
+  #scenario p { margin: 0 0 11px; }
+  #scenario p:last-child { margin-bottom: 0; }
+  #scenario ul { margin: 0 0 11px; padding-left: 20px; }
+  #scenario li { margin-bottom: 4px; }
+
+  .cat { padding: 14px 0; border-top: 1px solid #eceef0; }
+  .cat:first-of-type { border-top: 1px solid #e6e8eb; }
+  .catname {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase; color: #737b82; margin: 0 0 9px;
+  }
+  .opts2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .ocard {
+    border: 1px solid #dfe3e7; border-radius: 7px; padding: 11px 12px;
+    background: #fff; cursor: pointer;
+  }
+  .ocard:hover { border-color: #2f6fb0; }
+  .ocard.picked { border-color: #2f6fb0; box-shadow: 0 0 0 1px #2f6fb0 inset; }
+  .oname { font-size: 13.5px; font-weight: 600; margin: 0 0 4px; }
+  .odesc { font-size: 12.5px; color: #4a5158; margin: 0; }
+
+  .foot {
+    margin-top: 20px; padding-top: 16px; border-top: 1px solid #e6e8eb;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .count { font-size: 13px; color: #737b82; }
+  .navbtn {
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    padding: 8px 22px; border-radius: 5px;
+    border: 1px solid #2f6fb0; background: #2f6fb0; color: #fff; cursor: pointer;
+  }
+  .navbtn:hover:not(:disabled) { background: #275e97; }
+  .navbtn:disabled { background: #b7c9db; border-color: #b7c9db; cursor: default; }
+
+  #done { display: none; margin-top: 14px; font-size: 14px; color: #4a5158; }
+  #done.open { display: block; }
+
+  @media (max-width: 560px) { .opts2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="scenario"></div>
+  <div id="cats"></div>
+  <div class="foot">
+    <span class="count" id="counter"></span>
+    <button type="button" class="navbtn" id="doneBtn">Done</button>
+  </div>
+  <div id="done">Your box has been recorded. Please continue.</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     PERSPECTIVE-ADOPTION PROBE — PHASE 2 OF 2 (BOX FOR A FRIEND)
+
+     Assembling a package for someone else is the vehicle because its
+     documented failure mode is exactly the standpoint failure being measured:
+     people choose what THEY would want. Another person's preferences invite
+     projection in a way an institutional policy does not.
+
+     THE FRIEND IS TAILORED. Sam's stated preferences are built from the
+     participant's phase-1 answers: opposite on three of the four diagnostic
+     categories, matching on one. Every participant therefore has a denominator
+     of exactly three categories where adoption is observable. Without
+     tailoring, anyone whose taste happened to match a fixed friend's would
+     yield no signal — roughly a quarter of a sample when the friend holds
+     majority positions. The one matching category keeps the opposition from
+     looking systematic.
+
+     TWO DECOY CATEGORIES. Sam's remarks cover only four of the six categories.
+     The other two carry no guidance and are never scored, so a third of the
+     choices have no right answer. That is what keeps the task from reading as
+     graded throughout — and it is realistic, since nobody knows everything
+     about a friend's taste.
+
+     Decoys also earn their keep analytically: n_decoy_matches_own is a BASELINE
+     projection rate. On unguided categories, choosing what you would have
+     wanted yourself is the reasonable default. Comparing that rate against
+     n_projected_on_incongruent shows whether projection on the guided
+     categories exceeds the participant's own baseline, which is a within-person
+     control the earlier pairwise version did not have.
+
+     THE KEY MEASURE is n_adopted_on_incongruent: on the three diagnostic
+     categories where the participant's own pick differed from Sam's stated
+     preference, how often did they still choose for Sam.
+
+     CATEGORY ORDER AND SIDE POSITIONS are re-randomised independently of phase
+     1. Because the phases are separated by other tasks, matching the earlier
+     layout would only make the repeat more recognisable.
+
+     THE CATEGORIES BLOCK BELOW MUST STAY IDENTICAL to the one in
+     care-package-self.html. Answers are mapped by category id.
+
+     INPUT. Reads the phase-1 handoff from the query string:
+       care-package-friend.html?self=eat:x,drink:y,comfort:x,activity:y,read:x,extra:y
+     If absent or malformed, own-choices are randomised and self_source is
+     logged as "random" so the file stays testable standalone — such a record
+     must not be treated as real data.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "BOX_FRIEND";
+  var FRIEND = "Sam";
+  var N_MATCHING = 1;
+
+  var CATEGORIES = [
+    { id: "eat", label: "Something to eat", role: "diagnostic",
+      x: { kind: "x", name: "Classic chocolate assortment", desc: "Familiar flavours, traditional box" },
+      y: { kind: "y", name: "Unusual flavour selection",    desc: "Chilli, miso and other uncommon pairings" },
+      pref: { x: "sticks to flavours they already know they like",
+              y: "likes trying things they have never had before" } },
+
+    { id: "drink", label: "Something to drink", role: "diagnostic",
+      x: { kind: "x", name: "One tin of single-origin tea", desc: "A larger tin of one carefully sourced leaf" },
+      y: { kind: "y", name: "Sampler of twelve sachets",    desc: "Twelve different blends, one of each" },
+      pref: { x: "prefers one good-quality thing to a set of smaller ones",
+              y: "prefers a variety to try rather than a single one" } },
+
+    { id: "comfort", label: "Something for comfort", role: "diagnostic",
+      x: { kind: "x", name: "Thick wool socks",  desc: "Hard-wearing, warm, plain grey" },
+      y: { kind: "y", name: "Scented candle",    desc: "Hand-poured, cedar and orange" },
+      pref: { x: "would rather have something practical than something indulgent",
+              y: "would rather have something indulgent than another practical thing" } },
+
+    { id: "activity", label: "Something to do", role: "diagnostic",
+      x: { kind: "x", name: "Crossword book",     desc: "A hundred puzzles, graded by difficulty" },
+      y: { kind: "y", name: "Card game for two",  desc: "Quick rounds, plays in twenty minutes" },
+      pref: { x: "prefers things they can do on their own",
+              y: "prefers things they can do with someone else" } },
+
+    { id: "read", label: "Something to read", role: "decoy",
+      x: { kind: "x", name: "Short story collection", desc: "Twelve stories by different authors" },
+      y: { kind: "y", name: "Nature photography book", desc: "Large-format landscape photography" } },
+
+    { id: "extra", label: "Something extra", role: "decoy",
+      x: { kind: "x", name: "Set of fine-tip pens", desc: "Four pens in black and blue" },
+      y: { kind: "y", name: "Pocket notebook",      desc: "Cloth-bound, ruled, fits in a jacket" } }
+  ];
+
+  function qparam(k) {
+    var m = new RegExp("[?&]" + k + "=([^&]*)").exec(window.location.search);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+  function coin() { return Math.random() < 0.5; }
+  function shuffle(a) {
+    var r = a.slice();
+    for (var i = r.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1)); var t = r[i]; r[i] = r[j]; r[j] = t;
+    }
+    return r;
+  }
+  function other(k) { return k === "x" ? "y" : "x"; }
+
+  /* ---------------- phase-1 handoff ---------------- */
+
+  var selfMapIn = qparam("self");
+  var own = {};
+  var parsedOk = false;
+
+  if (selfMapIn) {
+    selfMapIn.split(",").forEach(function (pair) {
+      var b = pair.split(":");
+      if (b.length === 2 && (b[1] === "x" || b[1] === "y")) own[b[0].trim()] = b[1];
+    });
+    parsedOk = CATEGORIES.every(function (c) { return own[c.id]; });
+  }
+  if (!parsedOk) {
+    CATEGORIES.forEach(function (c) { own[c.id] = coin() ? "x" : "y"; });
+  }
+
+  /* ---------------- tailoring (diagnostic categories only) ---------------- */
+
+  var diagnostic = CATEGORIES.filter(function (c) { return c.role === "diagnostic"; });
+  var matchingIds = shuffle(diagnostic.map(function (c) { return c.id; })).slice(0, N_MATCHING);
+
+  var sam = {};
+  diagnostic.forEach(function (c) {
+    sam[c.id] = matchingIds.indexOf(c.id) !== -1 ? own[c.id] : other(own[c.id]);
+  });
+
+  var order = shuffle(CATEGORIES);
+  var N = order.length;
+
+  /* ---------------- state ---------------- */
+
+  var t0 = Date.now();
+  var state = {
+    probe: PROBE_ID,
+    self_source: parsedOk ? "url" : "random",
+    self_map_in: selfMapIn,
+    own_map: CATEGORIES.map(function (c) { return c.id + ":" + own[c.id]; }).join(","),
+    sam_map: diagnostic.map(function (c) { return c.id + ":" + sam[c.id]; }).join(","),
+    matching_items: matchingIds.join(","),
+    category_order: order.map(function (c) { return c.id; }).join(","),
+    side_order: null,
+    gift_choices: null,
+    n_incongruent_items: 0,          // denominator — should equal 3
+    n_adopted_on_incongruent: 0,     // THE KEY MEASURE
+    n_projected_on_incongruent: 0,
+    n_gift_matches_sam: 0,           // across the four diagnostic categories
+    n_decoy_matches_own: 0,          // baseline projection on unguided categories
+    n_decoy_answered: 0,
+    n_answered: 0,
+    t_first_interaction: null,
+    t_last_choice: null,
+    finished: 0,
+    t_finished: null
+  };
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) state.t_first_interaction = Date.now() - t0;
+  }
+
+  /* ---------------- scenario ---------------- */
+
+  document.getElementById("scenario").innerHTML =
+    '<p>Your friend ' + FRIEND + ' has had a rough month, and you have decided to ' +
+    'send them one of the build-your-own boxes. Thinking back over things ' +
+    FRIEND + ' has said:</p><ul>' +
+    order.filter(function (c) { return c.role === "diagnostic"; })
+         .map(function (c) { return '<li>' + FRIEND + ' ' + c.pref[sam[c.id]] + '.</li>'; })
+         .join("") +
+    '</ul><p>Choose one item from each category.</p>';
+
+  /* ---------------- render ---------------- */
+
+  var sideOrder = order.map(function () { return coin(); });
+  state.side_order = sideOrder.map(function (v) { return v ? "x" : "y"; }).join(",");
+
+  function optCard(o) {
+    return '<div class="ocard" data-kind="' + o.kind + '">' +
+             '<p class="oname">' + o.name + '</p>' +
+             '<p class="odesc">' + o.desc + '</p>' +
+           '</div>';
+  }
+
+  document.getElementById("cats").innerHTML = order.map(function (c, i) {
+    var first = sideOrder[i] ? c.x : c.y;
+    var second = sideOrder[i] ? c.y : c.x;
+    return '<div class="cat" data-cat="' + c.id + '">' +
+             '<p class="catname">' + c.label + '</p>' +
+             '<div class="opts2">' + optCard(first) + optCard(second) + '</div>' +
+           '</div>';
+  }).join("");
+
+  /* ---------------- responses ---------------- */
+
+  var picks = {};
+  var doneBtn = document.getElementById("doneBtn");
+
+  function refresh() {
+    var answered = 0, incong = 0, adopted = 0, projected = 0,
+        matches = 0, decoyOwn = 0, decoyAns = 0;
+
+    CATEGORIES.forEach(function (c) {
+      var p = picks[c.id];
+      if (!p) return;
+      answered += 1;
+      if (c.role === "decoy") {
+        decoyAns += 1;
+        if (p === own[c.id]) decoyOwn += 1;
+        return;
+      }
+      if (p === sam[c.id]) matches += 1;
+      if (sam[c.id] !== own[c.id]) {
+        incong += 1;
+        if (p === sam[c.id]) adopted += 1; else projected += 1;
+      }
+    });
+
+    state.gift_choices = order.map(function (c) {
+      return c.id + ":" + (picks[c.id] || "");
+    }).join(",");
+    state.n_answered = answered;
+    state.n_incongruent_items = incong;
+    state.n_adopted_on_incongruent = adopted;
+    state.n_projected_on_incongruent = projected;
+    state.n_gift_matches_sam = matches;
+    state.n_decoy_matches_own = decoyOwn;
+    state.n_decoy_answered = decoyAns;
+
+    document.getElementById("counter").textContent = answered + " of " + N + " chosen";
+    doneBtn.disabled = answered < N;
+    reportHeight();
+  }
+
+  document.getElementById("cats").addEventListener("click", function (e) {
+    var card = e.target.closest(".ocard");
+    if (!card) return;
+    markInteraction();
+    var cat = card.closest(".cat");
+    cat.querySelectorAll(".ocard").forEach(function (c) {
+      c.classList.toggle("picked", c === card);
+    });
+    picks[cat.getAttribute("data-cat")] = card.getAttribute("data-kind");
+    state.t_last_choice = Date.now() - t0;
+    refresh();
+    report();
+  });
+
+  doneBtn.addEventListener("click", function () {
+    if (doneBtn.disabled) return;
+    state.finished = 1;
+    state.t_finished = Date.now() - t0;
+    doneBtn.disabled = true;
+    document.getElementById("done").classList.add("open");
+    report();
+    reportHeight();
+  });
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(reportHeight, 500);
+
+  refresh();
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

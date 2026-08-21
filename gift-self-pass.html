@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gift Shop</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.5; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  #scenario { margin: 0 0 20px; }
+  #scenario p { margin: 0 0 11px; }
+  #scenario p:last-child { margin-bottom: 0; }
+
+  .progress {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12.5px; color: #737b82;
+    padding-bottom: 8px; border-bottom: 1px solid #e6e8eb; margin-bottom: 16px;
+  }
+  .dots { display: flex; gap: 5px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #dfe3e7; }
+  .dot.done { background: #9fb8d1; }
+  .dot.current { background: #2f6fb0; }
+
+  .viewport { overflow: hidden; }
+  .track { display: flex; align-items: flex-start; transition: transform 0.28s ease; }
+  .slide { flex: 0 0 100%; min-width: 100%; padding: 0 1px; }
+
+  .opts2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .ocard {
+    border: 1px solid #dfe3e7; border-radius: 7px; padding: 13px 14px;
+    background: #fff; cursor: pointer;
+  }
+  .ocard:hover { border-color: #2f6fb0; }
+  .ocard.picked { border-color: #2f6fb0; box-shadow: 0 0 0 1px #2f6fb0 inset; }
+  .oname { font-size: 14px; font-weight: 600; margin: 0 0 5px; }
+  .odesc { font-size: 12.5px; color: #4a5158; margin: 0 0 7px; }
+  .oprice { font-size: 12.5px; color: #737b82; margin: 0; }
+
+  .nav { display: flex; justify-content: space-between; gap: 10px; margin-top: 20px; }
+  .navbtn {
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    padding: 8px 20px; border-radius: 5px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+  }
+  .navbtn:hover:not(:disabled) { border-color: #2f6fb0; color: #2f6fb0; }
+  .navbtn:disabled { opacity: 0.4; cursor: default; }
+  .navbtn.primary { border-color: #2f6fb0; background: #2f6fb0; color: #fff; }
+  .navbtn.primary:hover:not(:disabled) { background: #275e97; color: #fff; }
+  .navbtn.primary:disabled { background: #b7c9db; border-color: #b7c9db; color: #fff; opacity: 1; }
+
+  #done { display: none; margin-top: 18px; font-size: 14px; color: #4a5158; }
+  #done.open { display: block; }
+
+  @media (max-width: 560px) { .opts2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="scenario"></div>
+  <div class="progress">
+    <span id="counter"></span>
+    <span class="dots" id="dots"></span>
+  </div>
+  <div class="viewport"><div class="track" id="track"></div></div>
+  <div class="nav">
+    <button type="button" class="navbtn" id="backBtn">Back</button>
+    <button type="button" class="navbtn primary" id="nextBtn">Next</button>
+  </div>
+  <div id="done">Your answers have been recorded. Please continue.</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     PERSPECTIVE-ADOPTION PROBE — PHASE 1 OF 2 (SELF-PASS)
+
+     This half elicits the participant's OWN preferences on four dimensions.
+     Nothing here is scored, and nothing mentions gifts for other people. It is
+     an ordinary preference question, which is exactly what it should look like.
+
+     Phase 2 (gift-for-friend.html) uses these answers to construct a friend
+     whose stated preferences oppose the participant on three of the four items
+     and match on one. That guarantees every participant has three items where
+     standpoint adoption is observable — without it, anyone whose taste happened
+     to match the friend's would yield no signal at all.
+
+     WHY THE PHASES ARE SEPARATE FILES. Presented back to back, the identical
+     pairs appearing twice is the single most obvious tell that something is
+     being measured. Run the two halves far apart in the survey and the repeat
+     reads as familiarity rather than as a test. Separation also removes the
+     anchoring problem: choices made for oneself no longer sit in working memory
+     when the gift choices are made.
+
+     THE ITEMS BLOCK BELOW MUST STAY IDENTICAL to the one in
+     gift-for-friend.html. Phase 2 maps these answers by item id, so changing a
+     name, a dimension, or an id in one file without the other will silently
+     misalign the tailoring.
+
+     HANDOFF. The field to pipe forward is `self_map`, formatted as
+       practical:x,quantity:y,keepsake:x,novelty:y
+     Phase 2 reads it from its query string.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "GIFT_SELF";
+
+  var ITEMS = [
+    { id: "practical",
+      x: { kind: "x", name: "A compact tool kit",
+           desc: "Screwdrivers, pliers and a small hammer in a case", price: "$38" },
+      y: { kind: "y", name: "A framed print",
+           desc: "A landscape print in a simple wooden frame", price: "$36" } },
+
+    { id: "quantity",
+      x: { kind: "x", name: "One hand-thrown mug",
+           desc: "A single large mug from a local pottery", price: "$34" },
+      y: { kind: "y", name: "A set of six mugs",
+           desc: "Six matching patterned mugs in a box", price: "$35" } },
+
+    { id: "keepsake",
+      x: { kind: "x", name: "A hardcover book",
+           desc: "A well-reviewed novel in hardcover", price: "$32" },
+      y: { kind: "y", name: "A cinema gift card",
+           desc: "Admits two, valid for a year", price: "$32" } },
+
+    { id: "novelty",
+      x: { kind: "x", name: "A box of classic chocolates",
+           desc: "Familiar flavours, traditional assortment", price: "$29" },
+      y: { kind: "y", name: "An unusual flavour selection",
+           desc: "Chilli, miso and other uncommon pairings", price: "$30" } }
+  ];
+
+  function coin() { return Math.random() < 0.5; }
+  function shuffle(a) {
+    var r = a.slice();
+    for (var i = r.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1)); var t = r[i]; r[i] = r[j]; r[j] = t;
+    }
+    return r;
+  }
+
+  var order = shuffle(ITEMS);
+  var N = order.length;
+  var sideOrder = order.map(function () { return coin(); });
+
+  var t0 = Date.now();
+  var state = {
+    probe: PROBE_ID,
+    item_order: order.map(function (t) { return t.id; }).join(","),
+    side_order: sideOrder.map(function (v) { return v ? "x" : "y"; }).join(","),
+    choices: null,        // kind chosen, in presentation order
+    self_map: null,       // "practical:x,quantity:y,..." — pipe this to phase 2
+    n_answered: 0,
+    trial_dwell: null,
+    n_back: 0,
+    t_first_interaction: null,
+    finished: 0,
+    t_finished: null
+  };
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) state.t_first_interaction = Date.now() - t0;
+  }
+
+  document.getElementById("scenario").innerHTML =
+    '<p>Imagine that you are browsing a small gift shop. For each pair below, ' +
+    'choose the one that appeals to you more.</p>';
+
+  function optCard(o) {
+    return '<div class="ocard" data-kind="' + o.kind + '">' +
+             '<p class="oname">' + o.name + '</p>' +
+             '<p class="odesc">' + o.desc + '</p>' +
+             '<p class="oprice">' + o.price + '</p>' +
+           '</div>';
+  }
+
+  document.getElementById("track").innerHTML = order.map(function (it, i) {
+    var first = sideOrder[i] ? it.x : it.y;
+    var second = sideOrder[i] ? it.y : it.x;
+    return '<div class="slide" data-slide="' + i + '">' +
+             '<div class="opts2">' + optCard(first) + optCard(second) + '</div>' +
+           '</div>';
+  }).join("");
+
+  document.getElementById("dots").innerHTML =
+    order.map(function () { return '<span class="dot"></span>'; }).join("");
+
+  var track = document.getElementById("track");
+  var backBtn = document.getElementById("backBtn");
+  var nextBtn = document.getElementById("nextBtn");
+  var picks = new Array(N).fill(null);
+  var dwell = new Array(N).fill(0);
+  var index = 0;
+  var enteredAt = Date.now();
+
+  function accrue() {
+    var now = Date.now();
+    dwell[index] += now - enteredAt;
+    enteredAt = now;
+    state.trial_dwell = dwell.join(",");
+  }
+
+  function render() {
+    track.style.transform = "translateX(-" + (index * 100) + "%)";
+    document.getElementById("counter").textContent = (index + 1) + " of " + N;
+    document.querySelectorAll(".dot").forEach(function (d, i) {
+      d.classList.toggle("current", i === index);
+      d.classList.toggle("done", i !== index && picks[i] !== null);
+    });
+    backBtn.disabled = index === 0;
+    nextBtn.disabled = picks[index] === null;
+    nextBtn.textContent = index === N - 1 ? "Done" : "Next";
+    reportHeight();
+  }
+
+  function goTo(i) { accrue(); index = i; enteredAt = Date.now(); render(); report(); }
+
+  backBtn.addEventListener("click", function () {
+    if (index === 0) return;
+    markInteraction();
+    state.n_back += 1;
+    goTo(index - 1);
+  });
+
+  nextBtn.addEventListener("click", function () {
+    markInteraction();
+    if (index < N - 1) { goTo(index + 1); return; }
+    accrue();
+    state.finished = 1;
+    state.t_finished = Date.now() - t0;
+    nextBtn.disabled = true;
+    backBtn.disabled = true;
+    document.getElementById("done").classList.add("open");
+    report();
+    reportHeight();
+  });
+
+  track.addEventListener("click", function (e) {
+    var card = e.target.closest(".ocard");
+    if (!card) return;
+    markInteraction();
+    var slide = card.closest(".slide");
+    var si = parseInt(slide.getAttribute("data-slide"), 10);
+    slide.querySelectorAll(".ocard").forEach(function (c) {
+      c.classList.toggle("picked", c === card);
+    });
+    picks[si] = card.getAttribute("data-kind");
+
+    var answered = 0;
+    picks.forEach(function (p) { if (p !== null) answered += 1; });
+
+    // Keyed by item id, so phase 2 stays correct even though it shuffles
+    // the items into a different order of its own.
+    state.self_map = order.map(function (it, i) {
+      return it.id + ":" + (picks[i] === null ? "" : picks[i]);
+    }).join(",");
+    state.choices = picks.join(",");
+    state.n_answered = answered;
+
+    render();
+    report();
+  });
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(function () { accrue(); reportHeight(); }, 1000);
+
+  render();
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

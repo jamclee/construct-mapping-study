@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Word Round — Instructions</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.5; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .scenario { font-size: 15px; margin: 0 0 8px; }
+  .scenario p { margin: 0 0 11px; }
+
+  .target {
+    margin: 16px 0 18px; padding: 16px 15px; text-align: center;
+    background: #f7f9fb; border: 1px solid #e6ebf0; border-radius: 7px;
+  }
+  .target .lab { font-size: 12.5px; color: #737b82; letter-spacing: 0.03em;
+                 text-transform: uppercase; font-weight: 600; }
+  .target .word { font-size: 27px; font-weight: 700; letter-spacing: 5px;
+                  margin-top: 5px; color: #1f2328; }
+
+  .rulesbox { border: 1px solid #dfe3e7; border-radius: 7px; padding: 14px 16px; }
+  .rulesbox h3 { font-size: 14px; font-weight: 600; margin: 0 0 8px; }
+  .rulesbox h3.second { margin-top: 18px; }
+  .rulesbox ul { margin: 0; padding-left: 18px; }
+  .rulesbox li { font-size: 14px; margin-bottom: 6px; }
+
+  table.score { border-collapse: collapse; width: 100%; max-width: 380px; margin-top: 4px; }
+  table.score td { font-size: 14px; padding: 4.5px 0; border-bottom: 1px solid #eef1f4; }
+  table.score td.pts { text-align: right; font-weight: 600; width: 92px; }
+  table.score tr:last-child td { border-bottom: none; }
+  table.score tr.penalty td { color: #a33; }
+
+  .decision { margin-top: 22px; padding-top: 18px; border-top: 1px solid #e6e8eb; }
+  .choicebtn {
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    padding: 9px 18px; border-radius: 5px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+  }
+  .choicebtn:hover { border-color: #2f6fb0; color: #2f6fb0; background: #f2f7fc; }
+  .choicebtn.primary { border-color: #2f6fb0; background: #2f6fb0; color: #fff; }
+  .choicebtn.primary:hover { background: #2a629c; color: #fff; }
+  .choicebtn[disabled] { opacity: 0.45; cursor: default; }
+  .choicebtn[disabled]:hover { border-color: #c8ced4; color: #1f2328; background: #fff; }
+
+  #comp { display: none; }
+  #comp.open { display: block; }
+  .compintro { font-size: 13px; color: #737b82; margin: 0 0 18px; }
+  .compq { margin-bottom: 22px; }
+  .compq > p { font-size: 14.5px; margin: 0 0 10px; }
+
+  /* which-words-count checklist */
+  .wrow {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 7px 0; border-bottom: 1px solid #f0f2f5;
+  }
+  .wrow:last-child { border-bottom: none; }
+  .wword { flex: 0 0 118px; font-size: 15px; font-weight: 600; letter-spacing: 0.7px; }
+  .wbtns { display: flex; gap: 7px; }
+  .mark { flex: 0 0 auto; font-size: 12.5px; font-weight: 600; margin-left: auto; }
+  .mark.ok { color: #2b7a4b; }
+  .mark.no { color: #a33; }
+
+  .opts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .optcol { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
+  .opt {
+    font-family: inherit; font-size: 13.5px; padding: 7px 14px; border-radius: 5px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+    text-align: left;
+  }
+  .opt:hover { border-color: #2f6fb0; color: #2f6fb0; }
+  .opt.picked { border-color: #2f6fb0; background: #2f6fb0; color: #fff; }
+  .opt.wrongpick { border-color: #a33; background: #a33; color: #fff; }
+
+  .feedback {
+    display: none; margin: 0 0 18px; padding: 11px 14px; border-radius: 6px;
+    font-size: 14px; background: #fdf3f3; border: 1px solid #f0d8d8; color: #7a2b2b;
+  }
+  .feedback.open { display: block; }
+  .feedback.good { background: #f2f9f4; border-color: #cfe6d7; color: #245c39; }
+
+  #done { display: none; margin-top: 20px; padding-top: 18px; border-top: 1px solid #e6e8eb; }
+  #done.open { display: block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="rules">
+    <div class="scenario" id="scenario"></div>
+    <div class="target" id="targetBox"></div>
+    <div class="rulesbox" id="rulesBox"></div>
+    <div class="decision">
+      <button type="button" class="choicebtn primary" id="continueBtn">I have read the rules</button>
+    </div>
+  </div>
+
+  <div id="comp">
+    <div class="feedback" id="feedback"></div>
+    <div id="items"></div>
+    <div class="decision">
+      <button type="button" class="choicebtn primary" id="submitBtn" disabled>Check my answers</button>
+    </div>
+  </div>
+
+  <div id="done"></div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     RULE-COMPREHENSION PROBE — words-from-a-word round, before play
+
+     PURPOSE. Two things must be understood before the round begins, and they
+     fail independently:
+
+       (1) MEMBERSHIP — which submissions count. Four constraints, each with a
+           separate failure mode, so a single "did you understand?" item cannot
+           localise the misunderstanding.
+       (2) TALLY — how points accrue. The scoring is deliberately NON-LINEAR
+           (1 / 2 / 4 / 7) rather than one-point-per-word or one-point-per-
+           letter. Linear scoring would be recovered by default assumptions and
+           the tally item would pass without anyone having read the table. The
+           common wrong answers are therefore made available as distractors:
+           3 (one per word) and 15 (one per letter).
+
+     TARGET WORD. PLAYGROUND has ten letters and no letter repeats. That matters
+     for item construction: with every letter appearing exactly once, "no letter
+     more times than it appears" has a clean single-word violation (GOOD needs
+     two O's) that is not confounded with counting how many copies are available.
+
+     THE MEMBERSHIP CHECKLIST IS RULE-DIAGNOSTIC. Each candidate isolates one
+     constraint and is scored separately, so the data say WHICH rule was missed:
+
+       DRAGON  counts        baseline valid, 6 letters
+       LOUD    counts        baseline valid, 4 letters
+       GOOD    doesn't       letter used more often than it appears
+       PLANT   doesn't       uses a letter that is not in the target
+       UP      doesn't       shorter than three letters
+       RONALD  doesn't       proper noun (all letters legal — isolates the rule
+                             rather than co-triggering the letter constraints)
+
+     Two valid candidates are included so that an "everything is invalid"
+     response set is separable from rule knowledge. Presentation order is
+     shuffled per respondent.
+
+     RULES ARE WITHDRAWN FOR THE FIRST ATTEMPT, THEN RESTORED. Attempt 1 is the
+     measurement: rules off screen, so the items index what was encoded while
+     reading. Attempts 2+ are the gate, not the measurement: the rules come back
+     with the incorrect items marked, because a respondent who is about to play
+     the round should enter it understanding the scoring. ANALYSE ATTEMPT 1
+     ONLY — the `a1_*` fields. Final-state fields exist to confirm the gate
+     closed, not to score comprehension; with REQUIRE_CORRECT on they are near-
+     constant by construction.
+
+     Set REQUIRE_CORRECT = false to make this pure measurement with no feedback
+     and no second attempt, at the cost of sending some respondents into the
+     round holding the wrong scoring model.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "WORDGAME_COMP";
+
+  /* ---------------- configuration ---------------- */
+
+  var REQUIRE_CORRECT = true;   // gate the round on a fully correct attempt
+  var MAX_ATTEMPTS = 3;         // after this the round opens regardless; flagged in data
+  var TARGET = "PLAYGROUND";
+  var ROUND_SECONDS = 120;
+
+  /* ---------------- scoring model (single source of truth) ----------------
+     Both the rules table and the tally item's correct answer are generated
+     from this, so the displayed rules and the scored answer cannot drift. */
+
+  var SCORING = [
+    { label: "3 letters",         min: 3, max: 3,        pts: 1 },
+    { label: "4 letters",         min: 4, max: 4,        pts: 2 },
+    { label: "5 letters",         min: 5, max: 5,        pts: 4 },
+    { label: "6 or more letters", min: 6, max: Infinity, pts: 7 }
+  ];
+  var PENALTY = -1;
+
+  function pointsFor(word) {
+    var n = word.length;
+    for (var i = 0; i < SCORING.length; i++) {
+      if (n >= SCORING[i].min && n <= SCORING[i].max) return SCORING[i].pts;
+    }
+    return 0;
+  }
+
+  /* ---------------- membership checklist ---------------- */
+
+  var CANDIDATES = [
+    { key: "dragon", word: "DRAGON", counts: true,  rule: "baseline" },
+    { key: "good",   word: "GOOD",   counts: false, rule: "letter_repeat" },
+    { key: "plant",  word: "PLANT",  counts: false, rule: "letter_absent" },
+    { key: "up",     word: "UP",     counts: false, rule: "min_length" },
+    { key: "ronald", word: "RONALD", counts: false, rule: "proper_noun" },
+    { key: "loud",   word: "LOUD",   counts: true,  rule: "baseline" }
+  ];
+
+  function shuffle(a) {
+    var arr = a.slice();
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+  var candidateOrder = shuffle(CANDIDATES);
+
+  /* ---------------- tally item ----------------
+     Worked example built from the scoring model above. PLAY and ROUND are new;
+     DRAGON also appears in the checklist, which is intentional — its validity
+     is already settled there, so this item isolates the arithmetic rather than
+     re-testing membership. */
+
+  var TALLY_WORDS = ["PLAY", "ROUND", "DRAGON"];          // 2 + 4 + 7
+  var TALLY_CORRECT = TALLY_WORDS.reduce(function (s, w) { return s + pointsFor(w); }, 0);
+  var TALLY_PER_WORD = TALLY_WORDS.length;                 // 3  — one point per word
+  var TALLY_PER_LETTER = TALLY_WORDS.reduce(function (s, w) { return s + w.length; }, 0); // 15
+
+  function tallyOptions() {
+    var vals = {};
+    vals[TALLY_CORRECT] = 1;
+    vals[TALLY_PER_WORD] = 1;
+    vals[TALLY_PER_LETTER] = 1;
+    vals[TALLY_CORRECT - 1] = 1;     // off-by-one on the top band
+    return Object.keys(vals).map(Number).sort(function (a, b) { return a - b; })
+      .map(function (v) { return [String(v), v + " points"]; });
+  }
+
+  var MC_ITEMS = [
+    {
+      key: "tally",
+      text: "In one round you submit " + TALLY_WORDS.slice(0, -1).join(", ") + " and " +
+            TALLY_WORDS[TALLY_WORDS.length - 1] + ", and nothing else. All three count. " +
+            "How many points do you score?",
+      opts: tallyOptions(),
+      correct: String(TALLY_CORRECT),
+      layout: "row"
+    },
+    {
+      key: "penalty",
+      text: "You submit a word and it turns out not to count. What happens to your score?",
+      opts: [
+        ["nothing", "Nothing — it is simply ignored"],
+        ["minus",   "You lose 1 point"],
+        ["plus",    "You still get 1 point for trying"],
+        ["end",     "The round ends immediately"]
+      ],
+      correct: "minus",
+      layout: "col"
+    },
+    {
+      key: "roundend",
+      text: "What brings the round to an end?",
+      opts: [
+        ["time",    "Two minutes are up"],
+        ["ten",     "You have submitted ten words"],
+        ["invalid", "You submit a word that does not count"],
+        ["twenty",  "You reach 20 points"]
+      ],
+      correct: "time",
+      layout: "col"
+    }
+  ];
+
+  var N_SUBITEMS = CANDIDATES.length + MC_ITEMS.length;   // 6 + 3 = 9
+
+  /* ---------------- state ---------------- */
+
+  var t0 = Date.now();
+
+  var state = {
+    probe: PROBE_ID,
+    target_word: TARGET,
+    n_subitems: N_SUBITEMS,
+    require_correct: REQUIRE_CORRECT ? 1 : 0,
+
+    t_first_interaction: null,
+    t_rules_read: null,          // dwell on the rules screen before continuing
+    rules_reshown: 0,            // times the rules came back after a failed attempt
+
+    attempt: 0,                  // attempts submitted so far
+    n_attempts: 0,
+
+    /* --- attempt 1: THE MEASUREMENT --- */
+    a1_valid_n_correct: null,    // 0-6 on the membership checklist
+    a1_rule_baseline_n: null,    // 0-2 (DRAGON, LOUD)
+    a1_rule_letter_repeat: null,
+    a1_rule_letter_absent: null,
+    a1_rule_min_length: null,
+    a1_rule_proper_noun: null,
+    a1_tally: null,    a1_tally_correct: null,
+    a1_penalty: null,  a1_penalty_correct: null,
+    a1_roundend: null, a1_roundend_correct: null,
+    a1_n_correct: null,          // 0-9 across all sub-items
+    a1_all_correct: null,        // passed on the first attempt
+    a1_membership_clean: null,   // all 6 checklist items right
+    t_first_submit: null,
+
+    /* --- final state: gate bookkeeping, not a comprehension measure --- */
+    final_valid_n_correct: null,
+    final_n_correct: null,
+    final_all_correct: null,
+    hit_attempt_cap: 0,          // opened the round without ever being fully correct
+    t_pass: null,
+
+    answer_changes: 0,
+    started_round: 0,
+    t_start_round: null
+  };
+
+  CANDIDATES.forEach(function (c) {
+    state["a1_valid_" + c.key] = null;      // "counts" | "no"
+    state["valid_" + c.key] = null;
+  });
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) state.t_first_interaction = Date.now() - t0;
+  }
+
+  /* ---------------- rules screen ---------------- */
+
+  document.getElementById("scenario").innerHTML =
+    '<p>In a moment you will play one round of a word game. Please read the rules ' +
+    'before you begin.</p>';
+
+  document.getElementById("targetBox").innerHTML =
+    '<div class="lab">Your word</div><div class="word">' + TARGET + '</div>';
+
+  document.getElementById("rulesBox").innerHTML =
+    '<h3>How to play</h3>' +
+    '<ul>' +
+      '<li>Make as many words as you can out of the letters in <strong>' + TARGET + '</strong>.</li>' +
+      '<li>You may use each letter no more times than it appears in ' + TARGET + '. ' +
+        'Every letter appears once, so no letter may be used twice in the same word.</li>' +
+      '<li>A word must be at least <strong>three letters</strong> long.</li>' +
+      '<li>Ordinary English words only. Names of people and places do not count, ' +
+        'and neither do abbreviations.</li>' +
+      '<li>The round lasts <strong>' + (ROUND_SECONDS / 60) + ' minutes</strong>.</li>' +
+    '</ul>' +
+    '<h3 class="second">How points are counted</h3>' +
+    '<table class="score"><tbody>' +
+      SCORING.map(function (b) {
+        return '<tr><td>' + b.label + '</td><td class="pts">' + b.pts +
+               (b.pts === 1 ? ' point' : ' points') + '</td></tr>';
+      }).join("") +
+      '<tr class="penalty"><td>Anything you submit that does not count</td>' +
+        '<td class="pts">' + PENALTY + ' point</td></tr>' +
+    '</tbody></table>';
+
+  /* ---------------- items ---------------- */
+
+  function renderItems() {
+    var html =
+      '<div class="compq" data-q="membership">' +
+        '<p>For each word below, would it count in a round played on <strong>' +
+          TARGET + '</strong>?</p>' +
+        candidateOrder.map(function (c) {
+          return '<div class="wrow" data-word="' + c.key + '">' +
+                   '<span class="wword">' + c.word + '</span>' +
+                   '<span class="wbtns">' +
+                     '<button type="button" class="opt" data-val="counts">Counts</button>' +
+                     '<button type="button" class="opt" data-val="no">Does not count</button>' +
+                   '</span>' +
+                   '<span class="mark"></span>' +
+                 '</div>';
+        }).join("") +
+      '</div>' +
+      MC_ITEMS.map(function (q) {
+        return '<div class="compq" data-q="' + q.key + '">' +
+                 '<p>' + q.text + '</p>' +
+                 '<div class="' + (q.layout === "row" ? "opts" : "optcol") + '">' +
+                   q.opts.map(function (o) {
+                     return '<button type="button" class="opt" data-val="' + o[0] + '">' +
+                            o[1] + '</button>';
+                   }).join("") +
+                 '</div>' +
+               '</div>';
+      }).join("");
+    document.getElementById("items").innerHTML = html;
+  }
+
+  var answers = {};   // live answers, reset is never needed — revisions overwrite
+
+  document.getElementById("continueBtn").addEventListener("click", function () {
+    markInteraction();
+    state.t_rules_read = Date.now() - t0;
+    document.getElementById("rules").style.display = "none";
+    renderItems();
+    document.getElementById("comp").classList.add("open");
+    report();
+    reportHeight();
+  });
+
+  document.getElementById("items").addEventListener("click", function (e) {
+    var opt = e.target.closest(".opt");
+    if (!opt) return;
+
+    var row = opt.closest(".wrow");
+    var block = opt.closest(".compq");
+    var key = row ? row.getAttribute("data-word") : block.getAttribute("data-q");
+    var val = opt.getAttribute("data-val");
+    var scope = row || block;
+
+    if (answers[key] !== undefined && answers[key] !== val) state.answer_changes += 1;
+    answers[key] = val;
+
+    scope.querySelectorAll(".opt").forEach(function (b) {
+      b.classList.remove("wrongpick");
+      b.classList.toggle("picked", b === opt);
+    });
+    if (row) row.querySelector(".mark").textContent = "";
+
+    updateSubmitState();
+    report();
+    reportHeight();
+  });
+
+  function allAnswered() {
+    var ok = CANDIDATES.every(function (c) { return answers[c.key] !== undefined; });
+    return ok && MC_ITEMS.every(function (q) { return answers[q.key] !== undefined; });
+  }
+
+  function updateSubmitState() {
+    document.getElementById("submitBtn").disabled = !allAnswered();
+  }
+
+  /* ---------------- submit / grade ---------------- */
+
+  document.getElementById("submitBtn").addEventListener("click", function () {
+    if (!allAnswered()) return;
+
+    state.attempt += 1;
+    state.n_attempts = state.attempt;
+    var first = state.attempt === 1;
+
+    var membershipCorrect = 0, baselineCorrect = 0;
+    CANDIDATES.forEach(function (c) {
+      var want = c.counts ? "counts" : "no";
+      var got = answers[c.key];
+      var right = got === want;
+      state["valid_" + c.key] = got;
+      if (right) membershipCorrect += 1;
+      if (first) {
+        state["a1_valid_" + c.key] = got;
+        if (c.rule === "baseline") { if (right) baselineCorrect += 1; }
+        else state["a1_rule_" + c.rule] = right ? 1 : 0;
+      }
+    });
+
+    var mcCorrect = 0;
+    MC_ITEMS.forEach(function (q) {
+      var right = answers[q.key] === q.correct;
+      if (right) mcCorrect += 1;
+      if (first) {
+        state["a1_" + q.key] = answers[q.key];
+        state["a1_" + q.key + "_correct"] = right ? 1 : 0;
+      }
+    });
+
+    var total = membershipCorrect + mcCorrect;
+
+    if (first) {
+      state.a1_rule_baseline_n = baselineCorrect;
+      state.a1_valid_n_correct = membershipCorrect;
+      state.a1_n_correct = total;
+      state.a1_all_correct = total === N_SUBITEMS ? 1 : 0;
+      state.a1_membership_clean = membershipCorrect === CANDIDATES.length ? 1 : 0;
+      state.t_first_submit = Date.now() - t0;
+    }
+
+    state.final_valid_n_correct = membershipCorrect;
+    state.final_n_correct = total;
+    state.final_all_correct = total === N_SUBITEMS ? 1 : 0;
+
+    if (total === N_SUBITEMS || !REQUIRE_CORRECT || state.attempt >= MAX_ATTEMPTS) {
+      if (total !== N_SUBITEMS && REQUIRE_CORRECT) state.hit_attempt_cap = 1;
+      state.t_pass = Date.now() - t0;
+      openRound(total === N_SUBITEMS);
+    } else {
+      showCorrections();
+    }
+
+    report();
+    reportHeight();
+  });
+
+  /* ---------------- corrective feedback ----------------
+     Marks which sub-items were wrong without revealing the right answer, and
+     brings the rules back on screen. Withholding the answer keeps the retry a
+     re-read of the rules rather than a two-alternative elimination, so a second
+     attempt still requires engaging with the scoring table. */
+
+  function showCorrections() {
+    CANDIDATES.forEach(function (c) {
+      var row = document.querySelector('.wrow[data-word="' + c.key + '"]');
+      var want = c.counts ? "counts" : "no";
+      var mark = row.querySelector(".mark");
+      if (answers[c.key] === want) {
+        mark.className = "mark ok";
+        mark.textContent = "correct";
+      } else {
+        mark.className = "mark no";
+        mark.textContent = "not right";
+        row.querySelectorAll(".opt.picked").forEach(function (b) {
+          b.classList.add("wrongpick");
+        });
+      }
+    });
+
+    MC_ITEMS.forEach(function (q) {
+      var block = document.querySelector('.compq[data-q="' + q.key + '"]');
+      if (answers[q.key] !== q.correct) {
+        block.querySelectorAll(".opt.picked").forEach(function (b) {
+          b.classList.add("wrongpick");
+        });
+      }
+    });
+
+    var fb = document.getElementById("feedback");
+    fb.className = "feedback open";
+    fb.innerHTML = "Not quite — the answers marked in red are not right. " +
+                   "The rules are below again; have another look and change those answers.";
+
+    document.getElementById("rules").style.display = "";
+    document.getElementById("continueBtn").style.display = "none";
+    state.rules_reshown += 1;
+
+    document.getElementById("submitBtn").textContent = "Check my answers again";
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------------- round opens ---------------- */
+
+  function openRound(clean) {
+    document.getElementById("comp").style.display = "none";
+    document.getElementById("rules").style.display = "none";
+
+    var done = document.getElementById("done");
+    done.innerHTML =
+      '<div class="feedback good open" style="margin-bottom:16px">' +
+        (clean ? "That is right — you have the rules."
+               : "Thanks. The rules stay on screen during the round.") +
+      '</div>' +
+      '<div class="target"><div class="lab">Your word</div>' +
+        '<div class="word">' + TARGET + '</div></div>' +
+      '<button type="button" class="choicebtn primary" id="startBtn">Start the round</button>';
+    done.classList.add("open");
+
+    document.getElementById("startBtn").addEventListener("click", function () {
+      state.started_round = 1;
+      state.t_start_round = Date.now() - t0;
+      report();
+      try {
+        window.parent.postMessage(
+          { source: "probe", probe: PROBE_ID, event: "ready", data: state }, "*");
+      } catch (err) {}
+      document.getElementById("startBtn").disabled = true;
+      document.getElementById("startBtn").textContent = "Starting…";
+      reportHeight();
+    });
+
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(reportHeight, 500);
+
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

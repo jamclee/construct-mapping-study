@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scenario</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.5; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  .lead { font-size: 15px; margin: 0 0 12px; }
+
+  /* THE VIGNETTE.
+     One uniform block. No bold, no highlighting, no pull-quote — each of the
+     three causal facts has to be found by reading, not by spotting emphasis. */
+  .vignette {
+    font-size: 15px; line-height: 1.62;
+    padding: 16px 18px; background: #f8f9fa;
+    border: 1px solid #e6ebf0; border-radius: 7px;
+  }
+  .vignette p { margin: 0 0 12px; }
+  .vignette p:last-child { margin-bottom: 0; }
+
+  .decision { margin-top: 22px; padding-top: 18px; border-top: 1px solid #e6e8eb; }
+  .choicebtn {
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    padding: 9px 18px; border-radius: 5px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+  }
+  .choicebtn:hover { border-color: #2f6fb0; color: #2f6fb0; background: #f2f7fc; }
+
+  #comp { display: none; }
+  #comp.open { display: block; }
+  #comp.inline { margin-top: 26px; padding-top: 20px; border-top: 1px solid #e6e8eb; }
+  .compintro { font-size: 14px; margin: 0 0 18px; }
+  .compq { margin-bottom: 20px; }
+  .compq > p { font-size: 14.5px; margin: 0 0 9px; }
+  .opts { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
+  .opt {
+    font-family: inherit; font-size: 13.5px; padding: 8px 14px; border-radius: 5px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+    text-align: left; max-width: 100%;
+  }
+  .opt:hover { border-color: #2f6fb0; color: #2f6fb0; }
+  .opt.picked { border-color: #2f6fb0; background: #2f6fb0; color: #fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="stimulus">
+    <p class="lead" id="lead"></p>
+    <div class="vignette" id="vignette"></div>
+    <div class="decision" id="continueWrap">
+      <button type="button" class="choicebtn" id="continueBtn">Continue</button>
+    </div>
+  </div>
+
+  <div id="comp"></div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     SCENARIO COMPREHENSION PROBE — service-failure attribution vignette
+
+     ── THEORETICAL ANCHOR ────────────────────────────────────────────────
+     The probe is built on the ATTRIBUTIONAL FRAMEWORK associated with Bernard
+     Weiner, which holds that people explain an outcome along three causal
+     dimensions:
+
+         LOCUS            — who or what brought the outcome about
+         STABILITY        — whether the cause is recurring or a one-off
+         CONTROLLABILITY  — whether the responsible party could have prevented it
+
+     Valerie Folkes brought this framework into consumer research with
+     scenario-based product- and service-failure studies (Journal of Consumer
+     Research, 1984), where the three dimensions are manipulated in the text of
+     a vignette and drive downstream judgements — blame, anger, desire for
+     redress, repurchase intention.
+
+     VERIFY THESE REFERENCES BEFORE CITING. They are given from memory as
+     pointers to a literature, not as checked bibliographic entries. The three
+     causal dimensions are textbook and safe to describe; exact titles, years
+     and page numbers are not, so look them up.
+
+     ── WHY THIS ANCHOR DETERMINES THE ITEM COUNT ─────────────────────────
+     This is the part worth putting in a methods section. In an attribution
+     scenario the three dimensions ARE the manipulation. A participant who
+     misreads locus is not giving a noisy answer about your scenario — they are
+     giving a clean answer about a DIFFERENT scenario, one in which somebody else
+     was at fault. Their downstream ratings are not attenuated, they are
+     misassigned.
+
+     So the comprehension set is not "a few questions about the story". It is
+     exactly ONE ITEM PER CAUSAL DIMENSION — the minimum set that establishes
+     the manipulation landed, and no more. Three items, three dimensions, a
+     principled stopping rule rather than an arbitrary count. Nothing here tests
+     incidental narrative detail (names, dates, amounts), because getting those
+     wrong does not make a participant's attribution judgements uninterpretable.
+
+     ── THE VIGNETTE IS ORIGINAL ──────────────────────────────────────────
+     The framework is borrowed; the text is not. Halden Goods, Trailside
+     Freight, the conveyor and the timeline were written for this probe and are
+     not adapted from any published stimulus. Describe it as a purpose-built
+     vignette constructed on the attributional dimensions — which is also the
+     stronger position, since a novel scenario carries no prior exposure among
+     panel participants.
+
+     ── EACH DISTRACTOR IS A NAMED DEFAULT, NOT FILLER ────────────────────
+     Every dimension in this scenario is written AGAINST the lay default, and the
+     default is offered as an option and tracked in the data:
+
+       locus            default: blame the seller you transacted with.
+                        The text puts the cause with the delivery contractor —
+                        the retailer shipped the same afternoon and was not told.
+       stability        default: a delay is a one-off piece of bad luck.
+                        The text makes it the third failure of that conveyor
+                        this year.
+       controllability  default: equipment failure is nobody's fault.
+                        The text has the contractor's own inspectors flag the
+                        conveyor two months earlier, with the repair postponed.
+
+     This is what gives the probe discriminating power rather than ceiling
+     performance. A respondent who reads the setup and then answers from
+     schema produces a specific, predictable error pattern, recorded per item as
+     `q_<dim>_default_error` and summed in `n_default_errors`. Report that
+     alongside accuracy: errors CONCENTRATED on the defaults indicate skimming,
+     errors SCATTERED across the remaining options indicate guessing. Plain
+     accuracy cannot separate those two.
+
+     ── SCORING ───────────────────────────────────────────────────────────
+     PASS_KEYS is all three dimensions, because the theoretical rationale above
+     is all-or-nothing: any single misread dimension makes the downstream
+     response misassigned. If that proves too strict in pilot data, drop to the
+     dimensions your design actually manipulates rather than loosening to a
+     count threshold — "2 of 3 correct" has no interpretation, whereas "locus
+     and controllability correct" does.
+
+     ── READING TIME ──────────────────────────────────────────────────────
+     `min_plausible_read_ms` is published in the data: the time a fast reader
+     needs for the vignette at READ_WPM (default 300, generous against the ~250
+     wpm adult silent-reading norm, so the flag stays conservative).
+     `too_fast_to_read` marks a first answer arriving before that.
+
+     CAVEAT IN SINGLE_SCREEN MODE. `t_first_answer` runs from page load, so the
+     flag means "did not read the vignette BEFORE answering". With the text
+     co-visible a respondent may legitimately jump to an item and look the answer
+     up — genuine work that still trips the flag. Read it together with
+     `t_comp_done` and `answer_changes`: a fast start with a long revising
+     finish is a looker-up, not a skipper. In sequential mode the flag is clean,
+     because `t_continue` then measures dwell on the vignette itself.
+
+     ── LAYOUT ────────────────────────────────────────────────────────────
+     SINGLE_SCREEN default true, matching the attribute probes: the vignette
+     stays on screen, so nothing is a memory test. The cost is that locus and
+     stability become findable by scanning. Controllability resists it best —
+     the answer is a judgement about preventability that appears nowhere as a
+     phrase. Set SINGLE_SCREEN false and HIDE_STIMULUS true to measure retention
+     instead; all three items remain answerable with the text withdrawn.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "ATTRIB_COMP";
+
+  /* ---------------- configuration ---------------- */
+
+  var SINGLE_SCREEN = true;    // vignette stays on screen with the items
+  var HIDE_STIMULUS = false;   // sequential mode only: withdraw the vignette
+  var READ_WPM = 300;          // generous ceiling for plausible silent reading
+  var PASS_KEYS = ["locus", "stability", "controllability"];
+
+  var RETAILER = "Halden Goods";
+  var CARRIER = "Trailside Freight";
+
+  /* ---------------- the vignette ----------------
+     Each causal dimension is stated exactly once, in plain type, in a different
+     paragraph. None is signposted. */
+
+  var PARAS = [
+    "Imagine you ordered a desk lamp from an online retailer, " + RETAILER + ", " +
+    "with delivery promised within three days.",
+
+    RETAILER + " packed the order and handed it to its delivery contractor, " +
+    CARRIER + ", the same afternoon. The parcel then sat at " + CARRIER + "'s " +
+    "regional depot for nine days, because the depot's sorting conveyor had " +
+    "broken down. When the lamp finally arrived, it was cracked — it had been " +
+    "dropped during the manual sorting that replaced the conveyor.",
+
+    CARRIER + "'s own safety inspectors had flagged that conveyor as failing two " +
+    "months earlier and recommended replacing it. " + CARRIER + " postponed the " +
+    "repair so as not to interrupt its holiday schedule. Depot records show the " +
+    "same conveyor has broken down three times this year.",
+
+    RETAILER + " was not told about any of this until you contacted them."
+  ];
+
+  function wordCount(s) { return s.split(/\s+/).filter(Boolean).length; }
+  var SCENARIO_WORDS = PARAS.reduce(function (n, p) { return n + wordCount(p); }, 0);
+  var MIN_READ_MS = Math.round((SCENARIO_WORDS / READ_WPM) * 60000);
+
+  /* ---------------- items: one per causal dimension ---------------- */
+
+  var ITEMS = [
+    {
+      key: "locus",
+      dimension: "Locus",
+      text: "Based on the description, what caused the lamp to arrive late and damaged?",
+      opts: [
+        ["carrier",  "How " + CARRIER + " handled the parcel"],
+        ["retailer", "How " + RETAILER + " handled the order"],
+        ["both",     "Both companies about equally"],
+        ["nosay",    "The description does not say"]
+      ],
+      correct: "carrier",
+      defaultError: "retailer"      // blame the seller you transacted with
+    },
+    {
+      key: "stability",
+      dimension: "Stability",
+      text: "Based on the description, a breakdown of that conveyor is best described as:",
+      opts: [
+        ["recurring", "A recurring problem at that depot"],
+        ["oneoff",    "A one-off piece of bad luck"],
+        ["first",     "The first failure of its kind"],
+        ["nosay",     "The description does not say"]
+      ],
+      correct: "recurring",
+      defaultError: "oneoff"        // a delay is just bad luck
+    },
+    {
+      key: "controllability",
+      dimension: "Controllability",
+      text: "Based on the description, could the conveyor breakdown have been prevented?",
+      opts: [
+        ["yes",      "Yes — it had been flagged and the repair was postponed"],
+        ["no",       "No — the equipment failed without warning"],
+        ["retailer", "Only " + RETAILER + " could have prevented it"],
+        ["nosay",    "The description does not say"]
+      ],
+      correct: "yes",
+      defaultError: "no"            // equipment failure is nobody's fault
+    }
+  ];
+
+  /* ---------------- state ---------------- */
+
+  var t0 = Date.now();
+
+  var state = {
+    probe: PROBE_ID,
+    framework: "weiner_causal_dimensions",
+    layout: SINGLE_SCREEN ? "single_screen" : "sequential",
+    stimulus_hidden: (!SINGLE_SCREEN && HIDE_STIMULUS) ? 1 : 0,
+    scenario_words: SCENARIO_WORDS,
+    read_wpm_assumed: READ_WPM,
+    min_plausible_read_ms: MIN_READ_MS,
+
+    t_first_interaction: null,
+    t_continue: null,
+    t_first_answer: null,
+    t_comp_done: null,
+    too_fast_to_read: null,
+
+    n_items: ITEMS.length,
+    n_answered: 0,
+    answer_changes: 0,
+
+    n_correct: 0,
+    n_correct_first: 0,           // first-pass, before revisions
+    n_default_errors: 0,          // wrong answers landing on the modelled lay default
+    passed: null                  // all three dimensions correct
+  };
+
+  ITEMS.forEach(function (q) {
+    state["q_" + q.key] = null;
+    state["q_" + q.key + "_first"] = null;
+    state["q_" + q.key + "_correct"] = null;
+    state["q_" + q.key + "_default_error"] = null;
+  });
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) state.t_first_interaction = Date.now() - t0;
+  }
+
+  /* ---------------- stimulus ---------------- */
+
+  document.getElementById("lead").textContent =
+    "Please read the following situation carefully. You will be asked some " +
+    "questions about it.";
+
+  document.getElementById("vignette").innerHTML =
+    PARAS.map(function (p) { return "<p>" + p + "</p>"; }).join("");
+
+  /* ---------------- items appear ---------------- */
+
+  if (SINGLE_SCREEN) {
+    document.getElementById("continueWrap").style.display = "none";
+  } else {
+    document.getElementById("continueBtn").addEventListener("click", function () {
+      markInteraction();
+      state.t_continue = Date.now() - t0;
+      if (HIDE_STIMULUS) document.getElementById("stimulus").style.display = "none";
+      showComprehension();
+      report();
+      reportHeight();
+    });
+  }
+
+  /* ---------------- comprehension block ---------------- */
+
+  var compEl = document.getElementById("comp");
+  var compShown = false;
+
+  function showComprehension() {
+    if (compShown) return;
+    compShown = true;
+
+    compEl.innerHTML =
+      '<p class="compintro">' +
+        'To be sure you understood the situation described above, please answer ' +
+        'the following questions.' +
+      '</p>' +
+      ITEMS.map(function (q) {
+        return '<div class="compq" data-q="' + q.key + '">' +
+                 '<p>' + q.text + '</p>' +
+                 '<div class="opts">' + q.opts.map(function (o) {
+                   return '<button type="button" class="opt" data-val="' + o[0] + '">' +
+                          o[1] + '</button>';
+                 }).join("") + '</div>' +
+               '</div>';
+      }).join("");
+
+    compEl.classList.add("open");
+    if (SINGLE_SCREEN) compEl.classList.add("inline");
+  }
+
+  compEl.addEventListener("click", function (e) {
+    var opt = e.target.closest(".opt");
+    if (!opt) return;
+
+    var block = opt.closest(".compq");
+    var key = block.getAttribute("data-q");
+    var val = opt.getAttribute("data-val");
+    var field = "q_" + key;
+
+    block.querySelectorAll(".opt").forEach(function (b) {
+      b.classList.toggle("picked", b === opt);
+    });
+
+    if (state.t_first_answer === null) {
+      state.t_first_answer = Date.now() - t0;
+      state.too_fast_to_read = state.t_first_answer < MIN_READ_MS ? 1 : 0;
+    }
+
+    if (state[field] !== null && state[field] !== val) state.answer_changes += 1;
+    if (state[field + "_first"] === null) state[field + "_first"] = val;
+    state[field] = val;
+
+    var answered = 0, correct = 0, correctFirst = 0, defaultErrors = 0;
+    ITEMS.forEach(function (q) {
+      var f = "q_" + q.key;
+      var a = state[f];
+      var first = state[f + "_first"];
+      state[f + "_correct"] = a === null ? null : (a === q.correct ? 1 : 0);
+      state[f + "_default_error"] = a === null ? null : (a === q.defaultError ? 1 : 0);
+      if (a === q.defaultError) defaultErrors += 1;
+      if (a !== null) { answered += 1; if (a === q.correct) correct += 1; }
+      if (first !== null && first === q.correct) correctFirst += 1;
+    });
+    state.n_answered = answered;
+    state.n_correct = correct;
+    state.n_correct_first = correctFirst;
+    state.n_default_errors = defaultErrors;
+
+    if (answered === ITEMS.length) {
+      state.t_comp_done = Date.now() - t0;
+      state.passed = PASS_KEYS.every(function (k) {
+        return state["q_" + k + "_correct"] === 1;
+      }) ? 1 : 0;
+    }
+
+    report();
+    reportHeight();
+  });
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(reportHeight, 500);
+
+  if (SINGLE_SCREEN) showComprehension();
+
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

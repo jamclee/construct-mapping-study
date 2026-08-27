@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A few questions about the game</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.5; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  .lead { font-size: 15px; margin: 0 0 14px; }
+  .note { font-size: 13.5px; color: #57606a; margin: 0 0 16px; }
+
+  .warnbox {
+    font-size: 13px; line-height: 1.5; color: #8a6d1f;
+    background: #fff8e6; border: 1px solid #e8d9a8; border-radius: 7px;
+    padding: 12px 14px; margin-bottom: 20px;
+  }
+  .warnbox strong { display: block; text-transform: uppercase; letter-spacing: .04em;
+                    font-size: 12px; margin-bottom: 5px; }
+
+  .block { margin-bottom: 26px; }
+  .block > p.q { font-size: 14.5px; margin: 0 0 9px; }
+
+  table.recall { border-collapse: collapse; margin: 4px 0 0; }
+  table.recall td { padding: 5px 14px 5px 0; font-size: 14px; vertical-align: middle; }
+  table.recall td.lab { color: #1f2328; }
+  input.num {
+    font-family: inherit; font-size: 14px; width: 74px; padding: 7px 9px;
+    border: 1px solid #c8ced4; border-radius: 5px; color: #1f2328; background: #fff;
+    text-align: center;
+  }
+  input.num:focus { outline: none; border-color: #2f6fb0; }
+  input.num[readonly] { background: #f6f8fa; color: #57606a; }
+  td.unit { color: #57606a; font-size: 13.5px; }
+
+  .btnrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 16px; }
+  .choicebtn {
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    padding: 9px 18px; border-radius: 5px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+  }
+  .choicebtn:hover:not(:disabled) { border-color: #2f6fb0; color: #2f6fb0; background: #f2f7fc; }
+  .choicebtn:disabled { opacity: .45; cursor: default; }
+  .linkbtn {
+    font-family: inherit; font-size: 13.5px; padding: 0; border: 0; background: none;
+    color: #57606a; text-decoration: underline; cursor: pointer;
+  }
+  .linkbtn:hover { color: #2f6fb0; }
+
+  #cued { display: none; }
+  #cued.open { display: block; }
+  .sep { margin-top: 26px; padding-top: 22px; border-top: 1px solid #e6e8eb; }
+
+  .compq { margin-bottom: 20px; }
+  .compq > p { font-size: 14.5px; margin: 0 0 9px; }
+  .opts { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
+  .opt {
+    font-family: inherit; font-size: 13.5px; padding: 8px 14px; border-radius: 5px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+    text-align: left; max-width: 100%;
+  }
+  .opt:hover { border-color: #2f6fb0; color: #2f6fb0; }
+  .opt.picked { border-color: #2f6fb0; background: #2f6fb0; color: #fff; }
+  .opt.mem { color: #57606a; font-style: italic; }
+  .opt.mem.picked { color: #fff; font-style: italic; }
+  .optrow { flex-direction: row; flex-wrap: wrap; }
+  .descrip { font-size: 12.5px; color: #8a8f96; margin: -4px 0 9px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="warn"></div>
+
+  <div id="sched" class="block">
+    <p class="lead" id="schedLead"></p>
+    <p class="q" id="schedQ"></p>
+    <table class="recall" id="schedTable"><tbody></tbody></table>
+    <div class="btnrow">
+      <button type="button" class="choicebtn" id="schedContinue" disabled>Continue</button>
+      <button type="button" class="linkbtn" id="schedNone"></button>
+    </div>
+  </div>
+
+  <div id="cued"></div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     SCORING-RULE RECALL PROBE — the incentive structure, at the point of play
+
+     -- THE RECALL REQUIREMENT THIS PROBE TESTS --------------------------
+     An incentivised task assumes the participant is pursuing the objective the
+     design assigned. That assumption has a memory precondition that is almost
+     never checked: the rules were presented on an earlier screen, and by the
+     time behaviour is generated the participant is working from whatever
+     survived. Someone playing a points-maximising game while remembering a
+     word-count game is not producing a noisy measure of effort under your
+     incentive — they are producing a clean measure of effort under a different
+     one, and every strategy variable you compute from their play is mislabelled.
+
+     This is the closed-book counterpart of
+     `Comprehension Probes/word-game-rules-probe.html`. That probe is
+     deliberately open-book: the rules sit on screen above the items, so a
+     failure there is a failure to read or understand. This probe withdraws
+     them, so a failure here is a failure to still be holding the rule while
+     playing.
+
+     -- PLACEMENT: AT THE ROUND, NOT BEFORE IT --------------------------
+     Two defensible placements, and one that ruins the measure.
+
+       IMMEDIATELY AFTER THE ROUND ENDS.  The default, and the safe choice.
+                 Rules already withdrawn, behaviour already recorded, nothing
+                 the probe does can change the play you are analysing.
+       MID-ROUND, CLOCK PAUSED.  Closer to the moment of interest, and the only
+                 way to catch a rule that was held at the start and lost by the
+                 end. It costs you the second half of the round: the probe
+                 reinstates the rules through retrieval practice, so post-probe
+                 play is played under a refreshed incentive and is not
+                 comparable to pre-probe play. If you do this, analyse the two
+                 halves separately and say so.
+       BEFORE THE ROUND.  Not a recall probe at all. This is the comprehension
+                 twin, and it belongs in the other folder.
+
+     -- SCORE RECALL AT THE GRANULARITY THE BEHAVIOUR REQUIRES ----------
+     The single most important design decision in this file, and the one most
+     worth defending in a methods section.
+
+     It is tempting to score the point schedule as verbatim recall: four tiers,
+     four numbers, all-or-nothing. That would be a memory test, not a validity
+     check. Optimal play in this game does not require the numbers. It requires
+     knowing that points RISE WITH LENGTH, and rise steeply enough that one long
+     word beats two short ones. A participant who recalls "4 letters is worth a
+     couple, and it goes up fast" plays exactly as well as one who recalls
+     2/4/7/11, and their behaviour is equally interpretable under your design.
+     Excluding them measures working memory and calls it attention.
+
+     THE BENCHMARK IS THEREFORE ORDINAL: did they retain that longer words earn
+     more? That is asked DIRECTLY, as the `direction` item, and `passed` keys on
+     it. Do not infer it from the numeric table instead. The two come apart in a
+     way that runs against you — a respondent holding "longer is worth more"
+     without any numbers leaves the boxes blank, and an incomplete table cannot
+     establish an ordering, so inferring the benchmark from the numbers scores
+     them as not knowing the rule they in fact know. That is the verbatim trap
+     re-entering through the back door.
+
+     The numeric table stays as the finer-grained secondary measure, scored at
+     three levels, none of which gate:
+
+       schedule_exact    all four tiers verbatim. The upper bound on precision.
+       schedule_ordinal  strictly increasing across the numbers actually given.
+                         Corroborates `direction` when the table is complete.
+       schedule_flat     all tiers recalled as equal — length does not pay.
+                         A specific, behaviourally consequential wrong model:
+                         it implies a count-maximising strategy, and it should
+                         show up as short words in the play data.
+
+     `direction_matches_schedule` compares the two. A mismatch is not an error
+     to resolve — it means they disagree about what was retained, and the direct
+     item is the one the behaviour needs. The numeric table earns its place by
+     locating HOW the value function was misremembered (flat, inverted, wrong
+     magnitudes), which a single ordinal item cannot do.
+
+     ORDER MATTERS. The numeric table is tier 1 and is locked before the
+     `direction` options render. Reversed, the options would hand back the
+     shape of the schedule and the numeric attempt would stop being independent.
+
+     The same principle picks which rules are probed at all. The minimum word
+     length and the round-end condition are ENFORCED BY THE SOFTWARE — submit a
+     three-letter word and the game rejects it, so a wrong model self-corrects
+     within seconds of play and never propagates into the DV. The point
+     schedule and the objective are enforced by nothing. Only the non-enforced
+     rules are in PASS_COMPONENTS; `recall_minlen` is collected and reported
+     separately, as engagement evidence rather than as grounds for exclusion.
+
+     -- KNOWING THE RULE AND USING THE RULE ARE DIFFERENT FAILURES ------
+     Two applied items, because a recalled table that is not applied produces
+     the same behaviour as no table at all.
+
+       applied_pair      GROUND and DRAGON are both six letters, so they score
+                         the same. Matched to the comprehension twin. The
+                         modelled error is picking DRAGON — the belief that the
+                         rarer, harder word must be worth more. Nothing in the
+                         rules ever said so; it has to be inferred from lengths.
+       applied_tradeoff  One seven-letter word (11) against two four-letter
+                         words (2 + 2 = 4). The seven-letter word wins by a
+                         wide margin. The modelled error is "two words" — the
+                         count heuristic, which is the strategically expensive
+                         mistake in a superlinear schedule.
+
+     `applied_tradeoff_consistent` is computed against the respondent's OWN
+     recalled numbers rather than against the true ones. This separates two
+     failures that accuracy alone merges:
+
+       recalled the table, applied answer contradicts it  ->  has the rule,
+             is not using it. Their play is not goal-directed under your
+             incentive even though they could recite it. This is the group a
+             conventional rule check certifies as fine.
+       recalled the table wrongly, applied answer follows it  ->  coherently
+             playing a different game. Their strategy variables are
+             interpretable, just under the wrong objective.
+
+     -- A PROBLEM IN THE STIMULUS THIS PROBE WILL SURFACE ---------------
+     Worth knowing before the data come back. The word-game instructions state
+     the goal twice, in two incompatible forms: "your goal is to create as many
+     valid English words as you can" and "your goal is to earn as many points as
+     you can". Those diverge whenever a long word costs more time than two short
+     ones, which under a 2/4/7/11 schedule is most of the round.
+
+     So a respondent who reports maximising WORD COUNT may be recalling the
+     instructions accurately — one of the two goals they were given. Do not
+     score that as a recall failure, and do not exclude on it. `objective`
+     records it as `objective_count_error` so the rate is visible, but the fix
+     belongs in the stimulus: pick one goal and state it once. Until then, treat
+     a high count-error rate as evidence about the instructions rather than
+     about the participants.
+
+     -- THE STRATEGY REPORT IS DESCRIPTIVE AND HAS NO KEY ---------------
+     The last item asks what the respondent was actually trying to do while
+     playing. There is no correct answer and it is not scored. It exists because
+     it can disagree with the objective item in the informative direction:
+     someone who correctly recalls that points were the goal and then reports
+     having played for word count has told you the incentive was known and
+     inoperative. `goal_mismatch` flags exactly that pair. It is a
+     self-report and carries all the usual limits, so read it alongside the
+     behavioural fields below rather than on its own.
+
+     -- LINK RECALL TO PLAY ---------------------------------------------
+     Pass the round's outcome in (`n_words`, `points`, `mean_len`) and the probe
+     carries it through untouched. These are not scored here — they are emitted
+     so the recall measure can be validated against behaviour, which is the
+     check that tells you whether any of this predicts anything:
+
+       schedule_flat = 1 should co-occur with a LOW `mean_len`
+       objective_count_error = 1 should co-occur with high `n_words` and low
+                               points-per-word
+
+     If those associations are absent, the probe is measuring post-round
+     verbalisation rather than the model that drove play, and it should not be
+     used as an exclusion rule. Run that check on pilot data before committing
+     to a gate.
+
+     -- SINGLE SOURCE OF TRUTH -------------------------------------------
+     SCORING, MIN_LENGTH and the applied pair are copied from the word-game
+     probe. They must not drift. If the schedule changes there and not here,
+     this file starts scoring against a game nobody played — and unlike a
+     wording drift, that failure is invisible in the output.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "WORDGAME_RECALL";
+
+  /* ---------------- configuration ---------------- */
+  /* Optional URL parameters, from the round:
+       lag       ms between the rules screen and this screen
+       n_words   valid words submitted
+       points    total points scored
+       mean_len  mean length of submitted words (one decimal is fine)
+       enc_pass  1/0 — passed the comprehension twin before play
+     e.g.  recall-game-rules.html?lag=214000&n_words=9&points=31
+           &mean_len=4.7&enc_pass=1                                        */
+
+  var ASK_CONFIDENCE      = true;
+  var SHOW_CONFIG_WARNING = false;  // set true while piloting the chain
+  var BONUS_LINKED        = false;  // true if the study pays a bonus on points
+
+  /* copied from Comprehension Probes/word-game-rules-probe.html */
+  var MIN_LENGTH = 4;
+  var SCORING = [
+    { label: "4 letters",         min: 4, max: 4,        pts: 2 },
+    { label: "5 letters",         min: 5, max: 5,        pts: 4 },
+    { label: "6 letters",         min: 6, max: 6,        pts: 7 },
+    { label: "7 or more letters", min: 7, max: Infinity, pts: 11 }
+  ];
+  var PAIR = { common: "GROUND", rare: "DRAGON" };   // both six letters
+
+  function pointsForLength(n) {
+    for (var i = 0; i < SCORING.length; i++) {
+      if (n >= SCORING[i].min && n <= SCORING[i].max) return SCORING[i].pts;
+    }
+    return 0;
+  }
+
+  /* the non-enforced rules — see the granularity note above */
+  var PASS_COMPONENTS = ["direction", "applied_tradeoff", "objective"];
+
+  /* ---------------- injected context ---------------- */
+
+  function param(name, dflt) {
+    var m = new RegExp("[?&]" + name + "=([^&#]*)").exec(window.location.search);
+    return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : dflt;
+  }
+  function paramBin(name) {
+    var v = param(name, null);
+    if (v === null || v === "") return null;
+    if (v === "1" || v === "true" || v === "yes") return 1;
+    if (v === "0" || v === "false" || v === "no") return 0;
+    return null;
+  }
+  function paramNum(name) {
+    var v = param(name, null);
+    if (v === null || v === "") return null;
+    var n = parseFloat(v);
+    return isNaN(n) ? null : n;
+  }
+
+  var LAG_MS   = paramNum("lag");
+  var POSITION = param("pos", null);   // assigned lag condition, if you manipulate it
+  var N_WORDS  = paramNum("n_words");
+  var POINTS   = paramNum("points");
+  var MEAN_LEN = paramNum("mean_len");
+  var ENC_PASS = paramBin("enc_pass");
+  var CHAINED  = (N_WORDS !== null || POINTS !== null) ? 1 : 0;
+
+  /* ---------------- applied items ---------------- */
+
+  var TRADEOFF_LONG  = 7;
+  var TRADEOFF_SHORT = 4;
+  var TRUE_LONG_PTS  = pointsForLength(TRADEOFF_LONG);        // 11
+  var TRUE_SHORT_PTS = 2 * pointsForLength(TRADEOFF_SHORT);   // 4
+  var TRADEOFF_KEY   = TRUE_LONG_PTS === TRUE_SHORT_PTS ? "same"
+                     : (TRUE_LONG_PTS > TRUE_SHORT_PTS ? "long" : "two");
+
+  var pairCommonFirst = Math.random() < 0.5;
+
+  function pairOpts() {
+    var c = ["common", PAIR.common];
+    var r = ["rare",   PAIR.rare];
+    return (pairCommonFirst ? [c, r] : [r, c]).concat([
+      ["same",   "They scored the same number of points"],
+      ["forgot", "I don't remember"]
+    ]);
+  }
+
+  var MEM = ["forgot", "I don't remember"];
+
+  var OBJECTIVE_TEXT = BONUS_LINKED
+    ? "In the game you just played, what did your bonus payment depend on?"
+    : "In the game you just played, what determined how well you did?";
+
+  var ITEMS = [
+    {
+      /* THE BENCHMARK, ASKED DIRECTLY. Placed after the numeric table so the
+         options cannot cue it. See the granularity note above for why this,
+         rather than `schedule_exact`, is what `passed` keys on. */
+      key: "direction",
+      component: "value_function",
+      inPass: true,
+      text: "In the game you just played, how did the number of letters in a " +
+            "word affect the points it earned?",
+      opts: [
+        ["more", "Longer words earned more points"],
+        ["less", "Longer words earned fewer points"],
+        ["none", "Length made no difference to points"],
+        MEM
+      ],
+      correct: "more",
+      defaultError: "none"        // length does not pay — implies count-maximising play
+    },
+    {
+      key: "applied_pair",
+      component: "application",
+      inPass: false,
+      text: PAIR.common + " and " + PAIR.rare + " both counted as valid words. " +
+            "Which one scored more points?",
+      opts: pairOpts(),
+      correct: "same",
+      defaultError: "rare"        // the rarer word must be worth more
+    },
+    {
+      key: "applied_tradeoff",
+      component: "application",
+      inPass: true,
+      text: "Which would have earned you more points: one " + TRADEOFF_LONG +
+            "-letter word, or two " + TRADEOFF_SHORT + "-letter words?",
+      opts: [
+        ["long",   "The one " + TRADEOFF_LONG + "-letter word"],
+        ["two",    "The two " + TRADEOFF_SHORT + "-letter words"],
+        ["same",   "They would have earned the same"],
+        MEM
+      ],
+      correct: TRADEOFF_KEY,
+      defaultError: "two"         // more words must mean more points
+    },
+    {
+      key: "objective",
+      component: "objective",
+      inPass: true,
+      text: OBJECTIVE_TEXT,
+      opts: [
+        ["points",  "The total number of points I earned"],
+        ["count",   "The number of words I found"],
+        ["longest", "The single longest word I found"],
+        ["speed",   "How quickly I finished"],
+        MEM
+      ],
+      correct: "points",
+      defaultError: "count"       // see the stimulus note above
+    },
+    {
+      /* Software-enforced constraint. Reported, not gated on. */
+      key: "minlen",
+      component: "constraint",
+      inPass: false,
+      text: "How many letters long did a word have to be to count?",
+      opts: [
+        ["3", "At least 3 letters"],
+        ["4", "At least 4 letters"],
+        ["5", "At least 5 letters"],
+        MEM
+      ],
+      correct: String(MIN_LENGTH),
+      defaultError: "3"           // three letters is the standing prior
+    },
+    {
+      /* DESCRIPTIVE. No key, never scored, never in PASS_COMPONENTS. */
+      key: "strategy",
+      component: "strategy_report",
+      inPass: false,
+      descriptive: true,
+      text: "While you were playing, what were you mainly trying to do?",
+      hint: "There is no right answer here — we are interested in how you " +
+            "actually approached it.",
+      opts: [
+        ["points",  "Earn as many points as I could"],
+        ["count",   "Find as many words as I could"],
+        ["long",    "Find the longest words I could"],
+        ["easy",    "Find whatever came to mind easily"],
+        ["finish",  "Just get through the task"]
+      ],
+      correct: null
+    }
+  ];
+
+  var CONF_OPTS = [
+    ["1", "Not at all confident"],
+    ["2", "Slightly confident"],
+    ["3", "Fairly confident"],
+    ["4", "Very confident"]
+  ];
+
+  /* ---------------- state ---------------- */
+
+  var t0 = Date.now();
+
+  var state = {
+    probe: PROBE_ID,
+    mode: "closed_book_recall",
+    paired_with: "WORDGAME_COMP",
+    chained: CHAINED,
+    bonus_linked: BONUS_LINKED ? 1 : 0,
+    retention_interval_ms: LAG_MS,
+    probe_position: POSITION,
+    enc_pass: ENC_PASS,
+
+    /* round outcomes, carried through untouched for the behavioural check */
+    play_n_words: N_WORDS,
+    play_points: POINTS,
+    play_mean_len: MEAN_LEN,
+
+    t_first_interaction: null,
+    t_schedule_done: null,
+    t_first_cued: null,
+    t_done: null,
+
+    /* tier 1 — the point schedule, recalled as numbers */
+    schedule_declined: null,
+    schedule_reported: null,       // e.g. "2|4|7|11", or blanks as ""
+    n_tiers_reported: 0,
+    n_tiers_exact: 0,
+    schedule_exact: null,          // all tiers verbatim — reported, not gated
+    schedule_ordinal: null,        // strictly increasing across the numbers given
+    schedule_flat: null,           // all equal — implies count-maximising play
+    schedule_implied_direction: null,   // "more" | "less" | "none" | null
+    direction_matches_schedule: null,   // the direct item vs. the numbers given
+
+    /* tier 2 — applied and objective items */
+    n_items: ITEMS.length,
+    n_answered: 0,
+    answer_changes: 0,
+    n_dont_remember: 0,
+    n_default_errors: 0,
+
+    applied_tradeoff_consistent: null,   // against the respondent's OWN numbers
+    objective_count_error: null,         // see the stimulus note
+    goal_mismatch: null,                 // knew the objective, played another
+
+    confidence: null,
+    confident_and_wrong: null,
+
+    passed: null
+  };
+
+  ITEMS.forEach(function (q) {
+    state["recall_" + q.key] = null;
+    if (!q.descriptive) {
+      state["recall_" + q.key + "_correct"] = null;
+      state["recall_" + q.key + "_default_error"] = null;
+    }
+  });
+
+  SCORING.forEach(function (b, i) {
+    state["sched_tier" + (i + 1) + "_reported"] = null;
+    state["sched_tier" + (i + 1) + "_true"] = b.pts;
+  });
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) state.t_first_interaction = Date.now() - t0;
+  }
+
+  /* ---------------- configuration banner ---------------- */
+
+  if (!CHAINED && SHOW_CONFIG_WARNING) {
+    document.getElementById("warn").innerHTML =
+      '<div class="warnbox">' +
+        '<strong>Configuration warning</strong>' +
+        'No round outcomes were received. The probe still scores normally, but ' +
+        '<code>n_words</code>, <code>points</code> and <code>mean_len</code> are ' +
+        'needed for the behavioural validation described in the file comments.' +
+      '</div>';
+  }
+
+  /* ---------------- tier 1: recall the schedule as numbers ---------------- */
+  /* Numeric entry rather than recognition. Options would hand back the shape of
+     the schedule, which is the part that matters, so the strict tier has to be
+     open-ended. */
+
+  var schedBlock = document.getElementById("sched");
+  var schedBody  = document.querySelector("#schedTable tbody");
+  var schedGo    = document.getElementById("schedContinue");
+  var schedNone  = document.getElementById("schedNone");
+
+  document.getElementById("schedLead").textContent =
+    "A few questions about the game you just played. Please answer from memory — " +
+    "the rules are no longer shown.";
+
+  document.getElementById("schedQ").textContent =
+    "To the best of your memory, how many points was each word worth?";
+
+  schedNone.textContent = "I don't remember the point values";
+
+  schedBody.innerHTML = SCORING.map(function (b, i) {
+    return '<tr>' +
+             '<td class="lab">' + b.label + '</td>' +
+             '<td><input class="num" type="text" inputmode="numeric" ' +
+               'data-tier="' + i + '" maxlength="3" aria-label="' + b.label + '"></td>' +
+             '<td class="unit">points</td>' +
+           '</tr>';
+  }).join("");
+
+  function readSchedule() {
+    var vals = [];
+    schedBody.querySelectorAll("input.num").forEach(function (inp) {
+      var raw = inp.value.replace(/[^0-9]/g, "");
+      inp.value = raw;
+      vals.push(raw === "" ? null : parseInt(raw, 10));
+    });
+    return vals;
+  }
+
+  schedBody.addEventListener("input", function () {
+    markInteraction();
+    var vals = readSchedule();
+    var filled = vals.filter(function (v) { return v !== null; }).length;
+    schedGo.disabled = filled === 0;
+    reportHeight();
+  });
+
+  function scoreSchedule(vals) {
+    var reported = 0, exact = 0;
+    vals.forEach(function (v, i) {
+      state["sched_tier" + (i + 1) + "_reported"] = v;
+      if (v !== null) {
+        reported += 1;
+        if (v === SCORING[i].pts) exact += 1;
+      }
+    });
+    state.n_tiers_reported = reported;
+    state.n_tiers_exact = exact;
+    state.schedule_reported = vals.map(function (v) {
+      return v === null ? "" : String(v);
+    }).join("|");
+
+    var complete = reported === SCORING.length;
+    state.schedule_exact = complete ? (exact === SCORING.length ? 1 : 0) : 0;
+
+    if (complete) {
+      var rising = true, falling = true, flat = true;
+      for (var i = 1; i < vals.length; i++) {
+        if (!(vals[i] > vals[i - 1])) rising = false;
+        if (!(vals[i] < vals[i - 1])) falling = false;
+        if (vals[i] !== vals[0]) flat = false;
+      }
+      state.schedule_ordinal = rising ? 1 : 0;
+      state.schedule_flat = flat ? 1 : 0;
+      state.schedule_implied_direction = flat ? "none"
+                                       : rising ? "more"
+                                       : falling ? "less"
+                                       : null;      // non-monotonic
+    } else {
+      /* An incomplete table cannot establish an ordering. This is exactly why
+         the ordinal benchmark is asked directly as the `direction` item rather
+         than inferred from these boxes — someone who holds "longer is worth
+         more" without the numbers leaves boxes blank and would otherwise be
+         scored as not knowing the rule they in fact know. */
+      state.schedule_ordinal = 0;
+      state.schedule_flat = 0;
+      state.schedule_implied_direction = null;
+    }
+  }
+
+  function closeSchedule(declined) {
+    markInteraction();
+    state.schedule_declined = declined ? 1 : 0;
+
+    var vals = declined ? SCORING.map(function () { return null; }) : readSchedule();
+    if (declined) {
+      schedBody.querySelectorAll("input.num").forEach(function (inp) { inp.value = ""; });
+    }
+    scoreSchedule(vals);
+    state.t_schedule_done = Date.now() - t0;
+
+    schedBody.querySelectorAll("input.num").forEach(function (inp) {
+      inp.readOnly = true;
+    });
+    schedGo.style.display = "none";
+    schedNone.style.display = "none";
+
+    showCued();
+    report();
+    reportHeight();
+  }
+
+  schedGo.addEventListener("click", function () { closeSchedule(false); });
+  schedNone.addEventListener("click", function () { closeSchedule(true); });
+
+  /* ---------------- tier 2: applied and objective ---------------- */
+
+  var cuedEl = document.getElementById("cued");
+  var cuedShown = false;
+
+  function showCued() {
+    if (cuedShown) return;
+    cuedShown = true;
+
+    var html = ITEMS.map(function (q) {
+      return '<div class="compq" data-q="' + q.key + '">' +
+               '<p>' + q.text + '</p>' +
+               (q.hint ? '<p class="descrip">' + q.hint + '</p>' : "") +
+               '<div class="opts">' + q.opts.map(function (o) {
+                 var cls = "opt" + (o[0] === "forgot" ? " mem" : "");
+                 return '<button type="button" class="' + cls + '" data-val="' +
+                        o[0] + '">' + o[1] + '</button>';
+               }).join("") + '</div>' +
+             '</div>';
+    }).join("");
+
+    if (ASK_CONFIDENCE) {
+      html += '<div class="compq" data-q="__conf">' +
+                '<p>How confident are you that you have remembered the rules ' +
+                'correctly?</p>' +
+                '<div class="opts optrow">' + CONF_OPTS.map(function (o) {
+                  return '<button type="button" class="opt" data-val="' + o[0] +
+                         '">' + o[1] + '</button>';
+                }).join("") + '</div>' +
+              '</div>';
+    }
+
+    cuedEl.innerHTML = html;
+    cuedEl.classList.add("open");
+    cuedEl.classList.add("sep");
+  }
+
+  cuedEl.addEventListener("click", function (e) {
+    var opt = e.target.closest(".opt");
+    if (!opt) return;
+
+    var block = opt.closest(".compq");
+    var key = block.getAttribute("data-q");
+    var val = opt.getAttribute("data-val");
+
+    block.querySelectorAll(".opt").forEach(function (b) {
+      b.classList.toggle("picked", b === opt);
+    });
+
+    markInteraction();
+    if (state.t_first_cued === null) state.t_first_cued = Date.now() - t0;
+
+    if (key === "__conf") {
+      state.confidence = parseInt(val, 10);
+    } else {
+      var field = "recall_" + key;
+      if (state[field] !== null && state[field] !== val) state.answer_changes += 1;
+      state[field] = val;
+    }
+
+    rescore();
+    report();
+    reportHeight();
+  });
+
+  function rescore() {
+    var answered = 0, forgot = 0, defaults = 0;
+
+    ITEMS.forEach(function (q) {
+      var a = state["recall_" + q.key];
+      if (a !== null) {
+        answered += 1;
+        if (a === "forgot") forgot += 1;
+      }
+      if (q.descriptive) return;
+      state["recall_" + q.key + "_correct"] = a === null ? null : (a === q.correct ? 1 : 0);
+      state["recall_" + q.key + "_default_error"] =
+        a === null ? null : (a === q.defaultError ? 1 : 0);
+      if (a === q.defaultError) defaults += 1;
+    });
+
+    state.n_answered = answered;
+    state.n_dont_remember = forgot;
+    state.n_default_errors = defaults;
+
+    state.objective_count_error = state.recall_objective === null
+      ? null : (state.recall_objective === "count" ? 1 : 0);
+
+    /* Does the direct benchmark agree with the numbers they wrote down? A
+       mismatch is not a contradiction to resolve — it means the two measures
+       are picking up different things, and the direct item is the one the
+       behaviour actually needs. */
+    if (state.recall_direction !== null && state.schedule_implied_direction !== null) {
+      state.direction_matches_schedule =
+        state.recall_direction === state.schedule_implied_direction ? 1 : 0;
+    }
+
+    /* did the applied answer follow the respondent's OWN recalled table? */
+    var vLong  = state["sched_tier4_reported"];   // 7+ letters
+    var vShort = state["sched_tier1_reported"];   // 4 letters
+    if (state.recall_applied_tradeoff !== null && vLong !== null && vShort !== null) {
+      var ownLong = vLong, ownTwoShort = 2 * vShort;
+      var implied = ownLong === ownTwoShort ? "same"
+                  : (ownLong > ownTwoShort ? "long" : "two");
+      state.applied_tradeoff_consistent =
+        state.recall_applied_tradeoff === implied ? 1 : 0;
+    }
+
+    /* knew the objective, reports having played for something else */
+    if (state.recall_objective !== null && state.recall_strategy !== null) {
+      state.goal_mismatch = (state.recall_objective === "points" &&
+                             state.recall_strategy !== "points") ? 1 : 0;
+    }
+
+    var componentsIn = PASS_COMPONENTS.every(function (c) {
+      if (c === "schedule_ordinal") return state.schedule_ordinal !== null;
+      return state["recall_" + c] !== null;
+    });
+
+    if (componentsIn) {
+      state.passed = PASS_COMPONENTS.every(function (c) {
+        if (c === "schedule_ordinal") return state.schedule_ordinal === 1;
+        return state["recall_" + c + "_correct"] === 1;
+      }) ? 1 : 0;
+      if (state.confidence !== null) {
+        state.confident_and_wrong = (state.confidence >= 3 && state.passed === 0) ? 1 : 0;
+      }
+    }
+
+    var allAnswered = answered === ITEMS.length &&
+                      (!ASK_CONFIDENCE || state.confidence !== null);
+    if (allAnswered && state.t_done === null) state.t_done = Date.now() - t0;
+  }
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(reportHeight, 500);
+
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

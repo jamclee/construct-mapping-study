@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A few questions</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.5; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  .lead { font-size: 15px; margin: 0 0 14px; }
+  .note { font-size: 13.5px; color: #57606a; margin: 0 0 16px; }
+
+  /* Optional pilot-only echo of the source text. Never shown in the live probe. */
+  .vignette {
+    font-size: 15px; line-height: 1.62;
+    padding: 16px 18px; background: #fff8e6;
+    border: 1px solid #e8d9a8; border-radius: 7px; margin-bottom: 20px;
+  }
+  .vignette p { margin: 0 0 12px; }
+  .vignette p:last-child { margin-bottom: 0; }
+  .vignette .flag { font-size: 12px; letter-spacing: .04em; text-transform: uppercase;
+                    color: #8a6d1f; margin-bottom: 8px; }
+
+  .block { margin-bottom: 26px; }
+  .block > p.q { font-size: 14.5px; margin: 0 0 9px; }
+
+  textarea {
+    font-family: inherit; font-size: 14.5px; line-height: 1.5; width: 100%;
+    min-height: 118px; padding: 10px 12px; border-radius: 6px;
+    border: 1px solid #c8ced4; color: #1f2328; background: #fff; resize: vertical;
+  }
+  textarea:focus { outline: none; border-color: #2f6fb0; }
+  textarea[readonly] { background: #f6f8fa; color: #57606a; }
+
+  .btnrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+  .choicebtn {
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    padding: 9px 18px; border-radius: 5px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+  }
+  .choicebtn:hover:not(:disabled) { border-color: #2f6fb0; color: #2f6fb0; background: #f2f7fc; }
+  .choicebtn:disabled { opacity: .45; cursor: default; }
+  .linkbtn {
+    font-family: inherit; font-size: 13.5px; padding: 0; border: 0; background: none;
+    color: #57606a; text-decoration: underline; cursor: pointer;
+  }
+  .linkbtn:hover { color: #2f6fb0; }
+
+  #cued { display: none; }
+  #cued.open { display: block; }
+  .sep { margin-top: 26px; padding-top: 22px; border-top: 1px solid #e6e8eb; }
+
+  .compq { margin-bottom: 20px; }
+  .compq > p { font-size: 14.5px; margin: 0 0 9px; }
+  .opts { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
+  .opt {
+    font-family: inherit; font-size: 13.5px; padding: 8px 14px; border-radius: 5px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+    text-align: left; max-width: 100%;
+  }
+  .opt:hover { border-color: #2f6fb0; color: #2f6fb0; }
+  .opt.picked { border-color: #2f6fb0; background: #2f6fb0; color: #fff; }
+  .opt.mem { color: #57606a; font-style: italic; }
+  .opt.mem.picked { color: #fff; font-style: italic; }
+  .optrow { flex-direction: row; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="preview"></div>
+
+  <div id="free" class="block">
+    <p class="lead" id="freeLead"></p>
+    <p class="q" id="freeQ"></p>
+    <textarea id="freeText" placeholder="Type whatever you remember."></textarea>
+    <div class="btnrow">
+      <button type="button" class="choicebtn" id="freeContinue" disabled>Continue</button>
+      <button type="button" class="linkbtn" id="freeNone"></button>
+    </div>
+  </div>
+
+  <div id="cued"></div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     SCENARIO RECALL PROBE — the attribution vignette, withdrawn
+
+     -- WHAT THIS MEASURES, AND HOW IT DIFFERS FROM ITS TWIN --------------
+     This probe is the deliberate closed-book counterpart of
+     `Comprehension Probes/scenario-comprehension-probe.html`. Same vignette,
+     same three causal dimensions, largely the same item wording. The only
+     structural difference is the one that matters:
+
+       COMPREHENSION  vignette on screen, asked at ENCODING.
+                      Question: did the manipulation land?
+       RECALL         vignette withdrawn, asked at the DV.
+                      Question: was the manipulation still being held when the
+                      dependent variable was produced?
+
+     Those are different constructs and they fail independently. A respondent
+     can read the vignette perfectly, answer all three comprehension items
+     correctly, and then — six screens and four minutes later — rate blame and
+     repurchase intention while holding a scenario in which nobody was at fault.
+     Their DV is not noisy; it is a clean measurement of a different stimulus.
+     Comprehension checks cannot see this, because they are administered while
+     the text is still available.
+
+     -- PLACEMENT IS THE WHOLE DESIGN. READ THIS BEFORE MOVING THE BLOCK --
+     Put this probe IMMEDIATELY AFTER the dependent variable, on the next
+     screen, with no filler in between.
+
+       AFTER the DV, adjacent.  Correct. The probe is a read-out of the memory
+                                state that produced the response you already
+                                collected.
+       AFTER the DV, but late.  Weakened. Anything between the DV and the probe
+                                is extra decay, so failures accumulate that were
+                                not present when the DV was measured. Recall is
+                                then a lower bound on what was held.
+       BEFORE the DV.           WRONG, and not merely conservative. Asking these
+                                questions RE-PRESENTS the causal facts. Retrieval
+                                practice is one of the most reliable memory
+                                interventions there is, so a pre-DV recall probe
+                                repairs the very state it is meant to measure —
+                                and can manufacture the effect in respondents who
+                                had lost it. If you need a pre-DV check, use the
+                                comprehension twin at encoding instead.
+
+     The unavoidable residual: this probe reads memory a few seconds AFTER the
+     DV, not during it. Adjacency keeps the gap small; it does not eliminate it.
+     State it as a limitation rather than claiming a simultaneous measure.
+
+     -- FREE RECALL FIRST, THEN CUED. THE ORDER IS LOAD-BEARING -----------
+     Tier 1 is an open prompt with nothing to recognise. Tier 2 is the
+     multiple-alternative set. Tier 1 is gated to submit before Tier 2 renders,
+     because the recognition options ARE the answer — showing them first
+     converts free recall into transcription and destroys the strict measure.
+
+     Report both. They disagree in an informative direction: cued recall runs
+     well above free recall because recognition can be carried by familiarity
+     without retrieval, and familiarity is not what drives a downstream
+     judgement. When they diverge sharply, the cued figure is the generous
+     bound and the free figure the strict one; give both and say which your
+     exclusion rule used.
+
+     Free-recall auto-scoring here is KEYWORD MATCHING and is provisional.
+     `free_text` is emitted verbatim for hand-coding, and every derived
+     `free_*` field should be treated as a first pass to be validated against a
+     coded subsample before it appears in a paper.
+
+     -- "I DON'T REMEMBER" IS A SEPARATE OPTION FROM "THE TEXT DIDN'T SAY" -
+     Every cued item carries BOTH. This is not redundancy — in a closed-book
+     probe they are different claims:
+
+         "The description did not say"   a claim about the stimulus
+         "I don't remember"              a claim about the respondent
+
+     Collapsing them corrupts the intrusion item, whose correct answer is a
+     not-stated claim: without a separate memory option, a respondent who
+     remembers nothing can score correct by picking "did not say" for the wrong
+     reason. Keeping them apart also produces `n_dont_remember`, a direct
+     measure of metacognitive honesty that is worth more than accuracy on a
+     low-effort panel — someone who says they forgot is telling you the truth,
+     someone who guesses is adding noise you cannot see.
+
+     -- THE INTRUSION ITEM -----------------------------------------------
+     Forgetting is not the only failure mode. Memory for a vignette RECONSTRUCTS
+     from schema, so the interesting error is not a blank but a confident recall
+     of something that was never presented. The fourth item asks whether Halden
+     Goods knew about the delay while it was happening. It did not — the text
+     says it was not told until contacted. But "the retailer surely tracks its
+     own shipments" is a strong prior, and endorsing it MOVES LOCUS BACK TO THE
+     RETAILER, which is precisely the dimension the vignette manipulates.
+
+     So the intrusion is diagnostic rather than incidental. A respondent who
+     commits it is not answering about your scenario; they are answering about
+     the schema-default scenario the comprehension twin was built to defeat.
+     `intrusion_committed` belongs in the analysis next to accuracy, and the
+     cell to look at is `intrusion_committed` = 1 with high `confidence` — high
+     confidence in a fabricated fact, which no accuracy score reveals.
+
+     Note the deliberate parallel to the twin: the same lay defaults are
+     modelled here (`r_<dim>_default_error` uses the same keys as
+     `q_<dim>_default_error` in the comprehension probe), so errors can be
+     compared item-for-item across encoding and retention.
+
+     -- PAIRING WITH THE COMPREHENSION TWIN ------------------------------
+     Recall failure and encoding failure are not the same defect and should not
+     share an exclusion rule. Pass the comprehension twin's per-dimension
+     results in as URL parameters (`enc_locus`, `enc_stability`, `enc_control`,
+     each 0 or 1) and this probe computes `retention_<dim>` directly:
+
+         encoded 1, recalled 1  ->  retention_<dim> = 1   held it
+         encoded 1, recalled 0  ->  retention_<dim> = 0   had it, lost it
+         encoded 0              ->  retention_<dim> = null
+                                    never had it; recall is uninterpretable, and
+                                    scoring it as a recall failure double-counts
+                                    a comprehension failure you already caught
+
+     Without the pairing you cannot tell those apart, and your exclusion rate
+     silently becomes a mixture of two constructs. If the parameters are absent
+     the probe still runs and simply leaves `retention_*` null — but say so in
+     the methods rather than reporting raw recall as retention.
+
+     -- SCORING ----------------------------------------------------------
+     PASS_KEYS is all three causal dimensions, matching the twin, for the same
+     all-or-nothing reason: one misremembered dimension makes the downstream
+     judgement misassigned. The intrusion item is NOT in PASS_KEYS. Report it as
+     a second, separate flag — it identifies a different pathology (confident
+     reconstruction) than the one `passed` identifies (loss), and folding them
+     into one number makes both uninterpretable.
+
+     -- STIMULUS TEXT LIVES HERE BUT IS NOT SHOWN ------------------------
+     PARAS is a verbatim copy of the twin's vignette. It is never rendered in
+     the live probe; it is kept so the keyword lists and item wording stay tied
+     to the source, and so drift between the two files is visible in a diff. Set
+     PREVIEW_STIMULUS true to render it during piloting — it appears in an
+     unmistakable amber panel so a preview build cannot be mistaken for the live
+     one. Verify the two files still match before every launch; if the vignette
+     is edited in one place only, this probe silently starts scoring against
+     text no respondent ever read.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "ATTRIB_RECALL";
+
+  /* ---------------- configuration ---------------- */
+
+  var PREVIEW_STIMULUS = false;   // pilot only — renders the source text in amber
+  var FREE_RECALL      = true;    // tier 1; set false to run recognition only
+  var MIN_FREE_CHARS   = 12;      // characters before Continue unlocks
+  var ASK_CONFIDENCE   = true;
+  var PASS_KEYS        = ["locus", "stability", "controllability"];
+
+  var RETAILER = "Halden Goods";
+  var CARRIER  = "Trailside Freight";
+
+  /* ---------------- the source text (NOT displayed) ---------------- */
+
+  var PARAS = [
+    "Imagine you ordered a desk lamp from an online retailer, " + RETAILER + ", " +
+    "with delivery promised within three days.",
+
+    RETAILER + " packed the order and handed it to its delivery contractor, " +
+    CARRIER + ", the same afternoon. The parcel then sat at " + CARRIER + "'s " +
+    "regional depot for nine days, because the depot's sorting conveyor had " +
+    "broken down. When the lamp finally arrived, it was cracked — it had been " +
+    "dropped during the manual sorting that replaced the conveyor.",
+
+    CARRIER + "'s own safety inspectors had flagged that conveyor as failing two " +
+    "months earlier and recommended replacing it. " + CARRIER + " postponed the " +
+    "repair so as not to interrupt its holiday schedule. Depot records show the " +
+    "same conveyor has broken down three times this year.",
+
+    RETAILER + " was not told about any of this until you contacted them."
+  ];
+
+  /* ---------------- injected context ---------------- */
+
+  function param(name, dflt) {
+    var m = new RegExp("[?&]" + name + "=([^&#]*)").exec(window.location.search);
+    return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : dflt;
+  }
+  function paramBin(name) {
+    var v = param(name, null);
+    if (v === null || v === "") return null;
+    if (v === "1" || v === "true" || v === "yes") return 1;
+    if (v === "0" || v === "false" || v === "no") return 0;
+    return null;
+  }
+  function paramInt(name) {
+    var v = param(name, null);
+    if (v === null || v === "") return null;
+    var n = parseInt(v, 10);
+    return isNaN(n) ? null : n;
+  }
+
+  /* Encoding-time results from the comprehension twin, and the retention
+     interval. All optional; absent values leave the derived fields null. */
+  var ENCODED = {
+    locus:           paramBin("enc_locus"),
+    stability:       paramBin("enc_stability"),
+    controllability: paramBin("enc_control")
+  };
+  var LAG_MS   = paramInt("lag");      // ms from the vignette screen to this screen
+  var POSITION = param("pos", null);   // assigned lag condition, if you manipulate it
+
+  /* ---------------- free-recall keyword sets ---------------- */
+  /* Provisional auto-scoring only. Each dimension counts as spontaneously
+     recalled if any cue appears. Cues are lowercase; the response is
+     lowercased and punctuation-stripped before matching. */
+
+  var FREE_CUES = {
+    locus: ["trailside", "freight", "carrier", "courier", "delivery company",
+            "delivery contractor", "contractor", "shipping company", "depot",
+            "the shipper", "the deliverer"],
+    stability: ["three times", "3 times", "third time", "third", "again",
+                "repeated", "repeatedly", "recurring", "keeps breaking",
+                "kept breaking", "before", "previously", "history", "not the first"],
+    controllability: ["flagged", "inspector", "inspectors", "inspection", "warned",
+                      "warning", "knew", "known", "postponed", "put off",
+                      "delayed the repair", "ignored", "preventable", "could have",
+                      "should have", "recommended replacing", "holiday schedule"]
+  };
+
+  /* ---------------- cued items ---------------- */
+  /* `correct`      the key.
+     `defaultError` the lay default modelled in the comprehension twin, kept
+                    identical here so encoding and retention errors compare.
+     Every item ends with a not-stated option and a distinct memory option. */
+
+  var MEM = ["forgot", "I don't remember"];
+
+  var ITEMS = [
+    {
+      key: "locus",
+      dimension: "Locus",
+      scored: true,
+      text: "In the situation you read earlier, what caused the lamp to arrive " +
+            "late and damaged?",
+      opts: [
+        ["carrier",  "How " + CARRIER + " handled the parcel"],
+        ["retailer", "How " + RETAILER + " handled the order"],
+        ["both",     "Both companies about equally"],
+        ["nosay",    "The description did not say"],
+        MEM
+      ],
+      correct: "carrier",
+      defaultError: "retailer"
+    },
+    {
+      key: "stability",
+      dimension: "Stability",
+      scored: true,
+      text: "In that situation, a breakdown of the depot's sorting conveyor was " +
+            "best described as:",
+      opts: [
+        ["recurring", "A recurring problem at that depot"],
+        ["oneoff",    "A one-off piece of bad luck"],
+        ["first",     "The first failure of its kind"],
+        ["nosay",     "The description did not say"],
+        MEM
+      ],
+      correct: "recurring",
+      defaultError: "oneoff"
+    },
+    {
+      key: "controllability",
+      dimension: "Controllability",
+      scored: true,
+      text: "In that situation, could the conveyor breakdown have been prevented?",
+      opts: [
+        ["yes",      "Yes — it had been flagged and the repair was postponed"],
+        ["no",       "No — the equipment failed without warning"],
+        ["retailer", "Only " + RETAILER + " could have prevented it"],
+        ["nosay",    "The description did not say"],
+        MEM
+      ],
+      correct: "yes",
+      defaultError: "no"
+    },
+    {
+      /* INTRUSION. Not in PASS_KEYS. The schema-consistent option is false and
+         reassigns locus to the retailer if endorsed. */
+      key: "intrusion",
+      dimension: "Intrusion (retailer awareness)",
+      scored: false,
+      text: "In that situation, did " + RETAILER + " know about the delay while " +
+            "it was happening?",
+      opts: [
+        ["notold",  "No — " + RETAILER + " was not told until you contacted them"],
+        ["knew",    "Yes — " + RETAILER + " knew and did not act"],
+        ["nosay",   "The description did not say"],
+        MEM
+      ],
+      correct: "notold",
+      intrusionKey: "knew"
+    }
+  ];
+
+  var CONF_OPTS = [
+    ["1", "Not at all confident"],
+    ["2", "Slightly confident"],
+    ["3", "Fairly confident"],
+    ["4", "Very confident"]
+  ];
+
+  /* ---------------- state ---------------- */
+
+  var t0 = Date.now();
+
+  var state = {
+    probe: PROBE_ID,
+    framework: "weiner_causal_dimensions",
+    mode: "closed_book_recall",
+    paired_with: "ATTRIB_COMP",
+    free_recall_enabled: FREE_RECALL ? 1 : 0,
+    preview_stimulus: PREVIEW_STIMULUS ? 1 : 0,
+    retention_interval_ms: LAG_MS,
+    probe_position: POSITION,
+
+    t_first_interaction: null,
+    t_free_done: null,
+    t_first_cued: null,
+    t_done: null,
+
+    /* tier 1 — free recall */
+    free_text: null,
+    free_chars: null,
+    free_declined: null,          // pressed "I don't remember enough"
+    free_locus: null,
+    free_stability: null,
+    free_controllability: null,
+    n_free_dims: null,
+
+    /* tier 2 — cued recognition */
+    n_items: ITEMS.length,
+    n_scored_items: ITEMS.filter(function (q) { return q.scored; }).length,
+    n_answered: 0,
+    answer_changes: 0,
+    n_cued_correct: 0,
+    n_default_errors: 0,
+    n_dont_remember: 0,
+    n_nosay: 0,
+
+    intrusion: null,
+    intrusion_committed: null,
+
+    confidence: null,
+    confident_and_wrong: null,    // confidence >= 3 with any scored dimension wrong
+
+    passed: null                  // all three causal dimensions recalled correctly
+  };
+
+  ITEMS.forEach(function (q) {
+    state["r_" + q.key] = null;
+    state["r_" + q.key + "_correct"] = null;
+    if (q.scored) {
+      state["r_" + q.key + "_default_error"] = null;
+      state["enc_" + q.key] = ENCODED[q.key];
+      state["retention_" + q.key] = null;
+    }
+  });
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) state.t_first_interaction = Date.now() - t0;
+  }
+
+  /* ---------------- optional pilot echo of the stimulus ---------------- */
+
+  if (PREVIEW_STIMULUS) {
+    document.getElementById("preview").innerHTML =
+      '<div class="vignette">' +
+        '<div class="flag">Pilot preview — not shown to respondents</div>' +
+        PARAS.map(function (p) { return "<p>" + p + "</p>"; }).join("") +
+      '</div>';
+  }
+
+  /* ---------------- tier 1: free recall ---------------- */
+
+  var freeBlock = document.getElementById("free");
+  var freeArea  = document.getElementById("freeText");
+  var freeGo    = document.getElementById("freeContinue");
+  var freeNone  = document.getElementById("freeNone");
+
+  /* No from-memory instruction on screen. Closed book is enforced structurally —
+     the vignette is not rendered — so disable back navigation in the survey
+     tool; nothing here now tells a respondent not to page back to it. */
+  document.getElementById("freeLead").textContent =
+    "Earlier in this study you read a short description of a situation.";
+
+  document.getElementById("freeQ").textContent =
+    "In your own words, why did the lamp arrive late and damaged? Include anything " +
+    "you remember about who was responsible and whether it could have been avoided.";
+
+  freeNone.textContent = "I don't remember enough to describe it";
+
+  function normalise(s) {
+    return String(s || "").toLowerCase().replace(/[^a-z0-9\s']/g, " ")
+      .replace(/\s+/g, " ").trim();
+  }
+
+  function scoreFree(raw) {
+    var t = normalise(raw);
+    var n = 0;
+    Object.keys(FREE_CUES).forEach(function (dim) {
+      var hit = FREE_CUES[dim].some(function (cue) { return t.indexOf(cue) !== -1; }) ? 1 : 0;
+      state["free_" + dim] = hit;
+      n += hit;
+    });
+    state.n_free_dims = n;
+  }
+
+  if (!FREE_RECALL) {
+    freeBlock.style.display = "none";
+  } else {
+    freeArea.addEventListener("input", function () {
+      markInteraction();
+      freeGo.disabled = freeArea.value.trim().length < MIN_FREE_CHARS;
+      reportHeight();
+    });
+  }
+
+  function closeFree(declined) {
+    markInteraction();
+    state.free_declined = declined ? 1 : 0;
+    state.free_text = declined ? "" : freeArea.value.trim();
+    state.free_chars = state.free_text.length;
+    scoreFree(state.free_text);
+    state.t_free_done = Date.now() - t0;
+
+    if (declined) freeArea.value = "";
+    freeArea.readOnly = true;
+    freeGo.style.display = "none";
+    freeNone.style.display = "none";
+
+    showCued();
+    report();
+    reportHeight();
+  }
+
+  freeGo.addEventListener("click", function () { closeFree(false); });
+  freeNone.addEventListener("click", function () { closeFree(true); });
+
+  /* ---------------- tier 2: cued recognition ---------------- */
+
+  var cuedEl = document.getElementById("cued");
+  var cuedShown = false;
+
+  function showCued() {
+    if (cuedShown) return;
+    cuedShown = true;
+
+    var html = '<p class="note">Still from memory, please answer the following.</p>' +
+      ITEMS.map(function (q) {
+        return '<div class="compq" data-q="' + q.key + '">' +
+                 '<p>' + q.text + '</p>' +
+                 '<div class="opts">' + q.opts.map(function (o) {
+                   var cls = "opt" + (o[0] === "forgot" ? " mem" : "");
+                   return '<button type="button" class="' + cls + '" data-val="' +
+                          o[0] + '">' + o[1] + '</button>';
+                 }).join("") + '</div>' +
+               '</div>';
+      }).join("");
+
+    if (ASK_CONFIDENCE) {
+      html += '<div class="compq" data-q="__conf">' +
+                '<p>How confident are you that your answers above are correct?</p>' +
+                '<div class="opts optrow">' + CONF_OPTS.map(function (o) {
+                  return '<button type="button" class="opt" data-val="' + o[0] +
+                         '">' + o[1] + '</button>';
+                }).join("") + '</div>' +
+              '</div>';
+    }
+
+    cuedEl.innerHTML = html;
+    cuedEl.classList.add("open");
+    if (FREE_RECALL) cuedEl.classList.add("sep");
+  }
+
+  cuedEl.addEventListener("click", function (e) {
+    var opt = e.target.closest(".opt");
+    if (!opt) return;
+
+    var block = opt.closest(".compq");
+    var key = block.getAttribute("data-q");
+    var val = opt.getAttribute("data-val");
+
+    block.querySelectorAll(".opt").forEach(function (b) {
+      b.classList.toggle("picked", b === opt);
+    });
+
+    markInteraction();
+    if (state.t_first_cued === null) state.t_first_cued = Date.now() - t0;
+
+    if (key === "__conf") {
+      state.confidence = parseInt(val, 10);
+    } else {
+      var field = "r_" + key;
+      if (state[field] !== null && state[field] !== val) state.answer_changes += 1;
+      state[field] = val;
+    }
+
+    rescore();
+    report();
+    reportHeight();
+  });
+
+  function rescore() {
+    var answered = 0, correct = 0, defaults = 0, forgot = 0, nosay = 0;
+
+    ITEMS.forEach(function (q) {
+      var a = state["r_" + q.key];
+      state["r_" + q.key + "_correct"] = a === null ? null : (a === q.correct ? 1 : 0);
+      if (a !== null) {
+        answered += 1;
+        if (a === "forgot") forgot += 1;
+        if (a === "nosay") nosay += 1;
+      }
+      if (q.scored) {
+        state["r_" + q.key + "_default_error"] =
+          a === null ? null : (a === q.defaultError ? 1 : 0);
+        if (a === q.defaultError) defaults += 1;
+        if (a !== null && a === q.correct) correct += 1;
+
+        /* encoding-controlled retention */
+        var enc = ENCODED[q.key];
+        state["retention_" + q.key] =
+          (enc === 1 && a !== null) ? (a === q.correct ? 1 : 0) : null;
+      } else if (q.key === "intrusion") {
+        state.intrusion = a;
+        state.intrusion_committed = a === null ? null : (a === q.intrusionKey ? 1 : 0);
+      }
+    });
+
+    state.n_answered = answered;
+    state.n_cued_correct = correct;
+    state.n_default_errors = defaults;
+    state.n_dont_remember = forgot;
+    state.n_nosay = nosay;
+
+    var allAnswered = answered === ITEMS.length &&
+                      (!ASK_CONFIDENCE || state.confidence !== null);
+
+    var allScoredIn = PASS_KEYS.every(function (k) { return state["r_" + k] !== null; });
+
+    if (allScoredIn) {
+      state.passed = PASS_KEYS.every(function (k) {
+        return state["r_" + k + "_correct"] === 1;
+      }) ? 1 : 0;
+      if (state.confidence !== null) {
+        state.confident_and_wrong = (state.confidence >= 3 && state.passed === 0) ? 1 : 0;
+      }
+    }
+
+    if (allAnswered && state.t_done === null) state.t_done = Date.now() - t0;
+  }
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(reportHeight, 500);
+
+  if (!FREE_RECALL) showCued();
+
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

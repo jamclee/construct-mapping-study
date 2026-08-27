@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apartment Selection</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+    color: #1f2328;
+    background: #ffffff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  .scenario { font-size: 15px; color: #1f2328; margin: 0 0 18px; }
+
+  .searchbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+    border: 1px solid #d8dce1; border-radius: 6px;
+    padding: 10px 12px; margin-bottom: 12px;
+    background: #f7f8fa;
+    font-size: 13.5px; color: #4a5158;
+  }
+  .searchbar .field { display: flex; align-items: baseline; gap: 6px; }
+  .searchbar .field .lab { color: #868e96; font-size: 12px; }
+  .searchbar .field .val { color: #1f2328; font-weight: 500; }
+
+  .count { font-size: 13.5px; color: #656c73; padding: 0 2px 8px; border-bottom: 1px solid #e6e8eb; }
+
+  /* ---- results list ---- */
+  .card {
+    border: 1px solid #dfe3e7; border-radius: 7px;
+    padding: 15px 16px; margin-top: 12px;
+    background: #fff;
+  }
+  .card.chosen { border-color: #2f6fb0; box-shadow: 0 0 0 1px #2f6fb0 inset; }
+
+  .cardtop { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  .name { font-size: 16.5px; font-weight: 600; margin: 0; }
+  .priceblock { text-align: right; white-space: nowrap; flex-shrink: 0; }
+  .rate { font-size: 19px; font-weight: 600; letter-spacing: -0.2px; }
+  .rate span { font-size: 12.5px; font-weight: 400; color: #737b82; }
+
+  /* values already revealed, carried back to the results page so that
+     comparing never requires the participant to remember anything */
+  .summary { margin-top: 12px; padding-top: 11px; border-top: 1px solid #eceef0; }
+  .summary:empty { display: none; }
+  .srow { display: flex; gap: 12px; font-size: 13.5px; padding: 2.5px 0; }
+  .slab { flex: 0 0 185px; color: #737b82; }
+  .sval { color: #1f2328; }
+
+  .cue {
+    margin-top: 12px; padding-top: 11px; border-top: 1px solid #eceef0;
+    font-size: 13px; color: #868e96;
+  }
+  .card.has-summary .cue { display: none; }
+
+  .cardfoot { margin-top: 14px; display: flex; gap: 9px; flex-wrap: wrap; }
+  .openbtn {
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    padding: 7px 18px; border-radius: 5px;
+    border: 1px solid #c8ced4; background: #fff; color: #2f6fb0;
+    cursor: pointer;
+  }
+  .openbtn:hover { border-color: #2f6fb0; background: #f2f7fc; }
+  .selectbtn {
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    padding: 7px 20px; border-radius: 5px;
+    border: 1px solid #2f6fb0; background: #2f6fb0; color: #fff;
+    cursor: pointer;
+  }
+  .selectbtn:hover { background: #275e97; border-color: #275e97; }
+
+  /* ---- detail view ---- */
+  #detailView { display: none; }
+  body.detail #listView { display: none; }
+  body.detail #detailView { display: block; }
+
+  .backbtn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 2px; margin-bottom: 4px;
+    border: 0; background: none;
+    font-family: inherit; font-size: 13.5px; font-weight: 500;
+    color: #2f6fb0; cursor: pointer;
+  }
+  .backbtn:hover { color: #275e97; text-decoration: underline; }
+  .backbtn .arrow {
+    width: 8px; height: 8px; flex-shrink: 0;
+    border-left: 1.8px solid currentColor;
+    border-bottom: 1.8px solid currentColor;
+    transform: rotate(45deg);
+  }
+
+  .detailhead {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+    padding-bottom: 12px; border-bottom: 1px solid #e6e8eb;
+  }
+
+  .sections { margin-top: 2px; }
+  .section { border-bottom: 1px solid #f1f3f5; }
+  .section:last-child { border-bottom: 0; }
+  .sechead {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; padding: 11px 2px;
+    border: 0; background: none;
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    color: #2f6fb0; text-align: left; cursor: pointer;
+  }
+  .sechead:hover { color: #275e97; }
+  .sechead .chev {
+    width: 8px; height: 8px; flex-shrink: 0; margin-right: 4px;
+    border-right: 1.8px solid currentColor;
+    border-bottom: 1.8px solid currentColor;
+    transform: rotate(45deg) translate(-2px, -2px);
+  }
+  .section.open .sechead .chev { transform: rotate(225deg) translate(-1px, -1px); }
+  .secbody { display: none; padding: 2px 2px 12px; }
+  .section.open .secbody { display: block; }
+
+  .cell { display: flex; align-items: baseline; gap: 12px; font-size: 13.5px; padding: 3px 0; }
+  .clab { flex: 0 0 185px; color: #737b82; }
+  .cval { color: #1f2328; }
+  .cbtn {
+    font-family: inherit; font-size: 13px; font-weight: 500;
+    padding: 1px 9px; border-radius: 4px;
+    border: 1px solid #c8ced4; background: #fff; color: #2f6fb0;
+    cursor: pointer;
+  }
+  .cbtn:hover { border-color: #2f6fb0; background: #f2f7fc; }
+
+  @media (max-width: 520px) {
+    .cardtop, .detailhead { flex-direction: column; gap: 8px; }
+    .priceblock { text-align: left; }
+    .cell, .srow { flex-direction: column; gap: 0; }
+    .clab, .slab { flex: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="listView">
+    <p class="scenario">
+      Imagine that you are choosing a one-bedroom apartment for the next year.
+      The three apartments are in the same neighborhood and are similar in size,
+      condition, safety, and distance from work or school.
+      <br><br>
+      Select the apartment you would prefer. You may open each listing to view
+      additional information.
+    </p>
+
+    <div class="searchbar">
+      <div class="field"><span class="lab">Type</span><span class="val">1 bedroom</span></div>
+      <div class="field"><span class="lab">Term</span><span class="val">Next 12 months</span></div>
+      <div class="field"><span class="lab">Area</span><span class="val">Same neighborhood</span></div>
+    </div>
+
+    <div class="count">3 listings available</div>
+    <div id="results"></div>
+  </div>
+
+  <div id="detailView"></div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     PROBE CONFIG — search probe, level 4 (serial access + nesting)
+
+     The ladder, measured in clicks required to PASS rather than clicks to
+     see everything:
+
+       SP1  1 click   (one control reveals an attribute for all options)
+       SP2  2 clicks  (one control reveals one attribute for one option)
+       SP3  6 clicks  (cells nested inside collapsed sections, all 3 options)
+       SP4  12 clicks (options can only be inspected one at a time)
+
+     The new lever is SERIAL ACCESS. Only one listing can be open at a time,
+     so acquiring an attribute costs: open listing + open section + reveal
+     cell + return to results. Comparing one attribute across all three
+     apartments therefore costs 4 x 3 = 12 clicks. Seeing everything costs
+     3 x (1 + 3 + 6 + 1) = 33.
+
+     IMPORTANT: revealed values are carried back onto the results page. Serial
+     access would otherwise force participants to hold values in memory, which
+     would make this partly a memory probe rather than a search probe. Keeping
+     a running comparison visible confines the cost to effort.
+
+     Visible layer: a neutral label and monthly rent only. Rents span $45
+     while utilities alone differ by up to $145/month and deposits by $1,375,
+     so the visible layer cannot support a considered choice.
+
+     Hidden layer: six attributes, every one carrying real money or real
+     lock-in. Each apartment wins on something different and the all-in cost
+     ordering inverts the visible rent ordering.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "SP4";
+  var LABELS = ["Apartment A", "Apartment B", "Apartment C"];
+
+  var ATTRS = {
+    lease:    "Lease length",
+    breaklse: "Breaking the lease",
+    deposit:  "Security deposit",
+    renewal:  "Rent at renewal",
+    utils:    "Utilities",
+    laundry:  "Laundry"
+  };
+
+  var SECTIONS = [
+    { key: "terms",   label: "Lease terms",            attrs: ["lease", "breaklse"] },
+    { key: "upfront", label: "Deposit & renewal",      attrs: ["deposit", "renewal"] },
+    { key: "monthly", label: "Monthly costs & laundry", attrs: ["utils", "laundry"] }
+  ];
+
+  var PROFILES = [
+    {
+      id: "flexible",
+      rent: 1295,
+      values: {
+        lease:    "6 months, then month-to-month",
+        breaklse: "30 days notice, no fee",
+        deposit:  "$500 flat",
+        renewal:  "Stays at $1,295",
+        utils:    "Not included, tenant pays all (about $130/month)",
+        laundry:  "Laundromat two blocks away"
+      }
+    },
+    {
+      id: "all_inclusive",
+      rent: 1275,
+      values: {
+        lease:    "12 months",
+        breaklse: "One month's rent",
+        deposit:  "One month's rent ($1,275)",
+        renewal:  "Rises to $1,425",
+        utils:    "All included (heat, water, electricity, internet)",
+        laundry:  "Washer and dryer in unit"
+      }
+    },
+    {
+      id: "cheap_locked",
+      rent: 1250,
+      values: {
+        lease:    "18 months",
+        breaklse: "Two months' rent",
+        deposit:  "$1,875",
+        renewal:  "Stays at $1,250",
+        utils:    "Not included, tenant pays all (about $145/month)",
+        laundry:  "Shared machines in building"
+      }
+    }
+  ];
+
+  /* ---------------- state / instrumentation ---------------- */
+
+  var t0 = Date.now();
+  var revealOrder = [];      // [{opt, attr}] in order of first reveal
+  var openedSections = {};   // "A:terms" -> true, first opens only
+  var openedListings = {};   // "A" -> number of times opened
+
+  var state = {
+    probe: PROBE_ID,
+    assignment: null,
+    section_order: null,
+    revealed: 0,
+    n_listings_opened: 0,       // distinct listings opened (0-3)
+    listing_opens: 0,           // total opens, including returns to the same one
+    listing_revisits: 0,        // opens beyond the first for a listing
+    n_sections_opened: 0,       // distinct listing x section first-opens (0-9)
+    section_toggles: 0,
+    n_cells_revealed: 0,        // 0-18
+    cells_revealed: null,
+    n_attrs_compared: 0,        // attributes revealed for >= 2 apartments
+    n_attrs_fully_compared: 0,  // attributes revealed for all 3 — the pass bar
+    n_options_touched: 0,
+    total_clicks: 0,            // listing opens + backs + section toggles + reveals
+    payne_index: null,
+    t_first_interaction: null,
+    t_reveal: null,
+    dwell_after_reveal: null,
+    n_cells_at_choice: 0,
+    choice_profile: null,
+    choice_label: null,
+    choice_changes: 0,
+    t_choice: null
+  };
+
+  var backClicks = 0;
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) {
+      state.t_first_interaction = Date.now() - t0;
+    }
+  }
+
+  /* ---------------- counterbalancing ---------------- */
+
+  function shuffle(a) {
+    var arr = a.slice();
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  var assigned = shuffle(PROFILES);
+  state.assignment = assigned.map(function (p) { return p.id; }).join(",");
+
+  var secOrder = shuffle(SECTIONS);
+  state.section_order = secOrder.map(function (s) { return s.key; }).join(",");
+
+  function slotOf(i) { return "ABC".charAt(i); }
+  function profBySlot(slot) { return assigned["ABC".indexOf(slot)]; }
+  function labelBySlot(slot) { return LABELS["ABC".indexOf(slot)]; }
+
+  function money(n) { return "$" + n.toLocaleString(); }
+
+  /* ---------------- results list ---------------- */
+
+  var results = document.getElementById("results");
+  var detailView = document.getElementById("detailView");
+
+  function revealedFor(slot) {
+    return revealOrder.filter(function (c) { return c.opt === slot; });
+  }
+
+  function renderList() {
+    results.innerHTML = assigned.map(function (p, i) {
+      var slot = slotOf(i);
+      var mine = revealedFor(slot);
+
+      var rows = mine.map(function (c) {
+        return '<div class="srow"><span class="slab">' + ATTRS[c.attr] +
+               '</span><span class="sval">' + p.values[c.attr] + '</span></div>';
+      }).join("");
+
+      return '<div class="card' + (mine.length ? ' has-summary' : '') +
+               (state.choice_profile === p.id ? ' chosen' : '') +
+               '" data-slot="' + slot + '" data-profile="' + p.id + '">' +
+               '<div class="cardtop">' +
+                 '<div><p class="name">' + LABELS[i] + '</p></div>' +
+                 '<div class="priceblock">' +
+                   '<div class="rate">' + money(p.rent) + ' <span>/ month</span></div>' +
+                 '</div>' +
+               '</div>' +
+               '<div class="cue">Open the listing to view additional information.</div>' +
+               '<div class="summary">' + rows + '</div>' +
+               '<div class="cardfoot">' +
+                 '<button type="button" class="openbtn" aria-label="Open listing for ' +
+                   LABELS[i] + '">Open listing</button>' +
+                 '<button type="button" class="selectbtn">' +
+                   (state.choice_profile === p.id ? "Selected" : "Select") + '</button>' +
+               '</div>' +
+             '</div>';
+    }).join("");
+  }
+
+  /* ---------------- detail page for one listing ---------------- */
+
+  function renderDetail(slot) {
+    var p = profBySlot(slot);
+    var label = labelBySlot(slot);
+
+    var secs = secOrder.map(function (s) {
+      var isOpen = openedSections[slot + ":" + s.key];
+      var rows = s.attrs.map(function (k) {
+        var already = revealOrder.some(function (c) {
+          return c.opt === slot && c.attr === k;
+        });
+        var right = already
+          ? '<span class="cval">' + p.values[k] + '</span>'
+          : '<button type="button" class="cbtn" aria-label="View ' + ATTRS[k] +
+            ' for ' + label + '">View</button>';
+        return '<div class="cell" data-attr="' + k + '">' +
+                 '<span class="clab">' + ATTRS[k] + '</span>' + right +
+               '</div>';
+      }).join("");
+
+      return '<div class="section' + (isOpen ? ' open' : '') +
+               '" data-section="' + s.key + '">' +
+               '<button type="button" class="sechead" aria-label="' + s.label +
+                 ' for ' + label + '">' +
+                 '<span>' + s.label + '</span><span class="chev"></span>' +
+               '</button>' +
+               '<div class="secbody">' + rows + '</div>' +
+             '</div>';
+    }).join("");
+
+    detailView.innerHTML =
+      '<button type="button" class="backbtn"><span class="arrow"></span>Back to all listings</button>' +
+      '<div class="detailhead" data-slot="' + slot + '">' +
+        '<div><p class="name">' + label + '</p></div>' +
+        '<div class="priceblock">' +
+          '<div class="rate">' + money(p.rent) + ' <span>/ month</span></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sections">' + secs + '</div>';
+
+    detailView.setAttribute("data-slot", slot);
+  }
+
+  function showList() {
+    document.body.classList.remove("detail");
+    renderList();
+    reportHeight();
+  }
+
+  function showDetail(slot) {
+    renderDetail(slot);
+    document.body.classList.add("detail");
+    reportHeight();
+  }
+
+  /* ---------------- derived search measures ---------------- */
+
+  function recompute() {
+    var byAttr = {}, byOpt = {};
+    revealOrder.forEach(function (c) {
+      (byAttr[c.attr] = byAttr[c.attr] || {})[c.opt] = true;
+      byOpt[c.opt] = true;
+    });
+
+    var compared = 0, full = 0;
+    Object.keys(byAttr).forEach(function (k) {
+      var n = Object.keys(byAttr[k]).length;
+      if (n >= 2) compared++;
+      if (n >= 3) full++;
+    });
+
+    state.n_cells_revealed = revealOrder.length;
+    state.cells_revealed = revealOrder.map(function (c) {
+      return c.opt + ":" + c.attr;
+    }).join(",");
+    state.n_attrs_compared = compared;
+    state.n_attrs_fully_compared = full;
+    state.n_options_touched = Object.keys(byOpt).length;
+    state.n_sections_opened = Object.keys(openedSections).length;
+    state.n_listings_opened = Object.keys(openedListings).length;
+    state.total_clicks =
+      state.listing_opens + backClicks + state.section_toggles + revealOrder.length;
+
+    var attrWise = 0, altWise = 0;
+    for (var i = 1; i < revealOrder.length; i++) {
+      var a = revealOrder[i - 1], b = revealOrder[i];
+      if (a.attr === b.attr && a.opt !== b.opt) attrWise++;
+      else if (a.opt === b.opt && a.attr !== b.attr) altWise++;
+    }
+    state.payne_index = (attrWise + altWise) === 0
+      ? null
+      : Math.round(((attrWise - altWise) / (attrWise + altWise)) * 100) / 100;
+  }
+
+  /* ---------------- list-view interactions ---------------- */
+
+  results.addEventListener("click", function (e) {
+    var open = e.target.closest(".openbtn");
+    if (open) {
+      var slot = open.closest(".card").getAttribute("data-slot");
+      markInteraction();
+
+      state.listing_opens += 1;
+      if (openedListings[slot]) {
+        openedListings[slot] += 1;
+        state.listing_revisits += 1;
+      } else {
+        openedListings[slot] = 1;
+      }
+
+      recompute();
+      showDetail(slot);
+      report();
+      return;
+    }
+
+    var btn = e.target.closest(".selectbtn");
+    if (!btn) return;
+
+    markInteraction();
+    var card = btn.closest(".card");
+
+    if (state.choice_profile !== null &&
+        state.choice_profile !== card.getAttribute("data-profile")) {
+      state.choice_changes += 1;
+    }
+
+    state.choice_profile = card.getAttribute("data-profile");
+    state.choice_label = labelBySlot(card.getAttribute("data-slot"));
+    state.t_choice = Date.now() - t0;
+    state.n_cells_at_choice = revealOrder.length;
+    state.dwell_after_reveal =
+      state.t_reveal === null ? null : state.t_choice - state.t_reveal;
+
+    renderList();
+    report();
+    reportHeight();
+  });
+
+  /* ---------------- detail-view interactions ---------------- */
+
+  detailView.addEventListener("click", function (e) {
+
+    if (e.target.closest(".backbtn")) {
+      markInteraction();
+      backClicks += 1;
+      recompute();
+      showList();
+      report();
+      return;
+    }
+
+    var slot = detailView.getAttribute("data-slot");
+
+    var sechead = e.target.closest(".sechead");
+    if (sechead) {
+      var section = sechead.closest(".section");
+      var skey = slot + ":" + section.getAttribute("data-section");
+
+      markInteraction();
+      state.section_toggles += 1;
+
+      var nowOpen = !section.classList.contains("open");
+      section.classList.toggle("open", nowOpen);
+      if (nowOpen) openedSections[skey] = true;
+      else delete openedSections[skey];
+
+      recompute();
+      report();
+      reportHeight();
+      return;
+    }
+
+    var cbtn = e.target.closest(".cbtn");
+    if (!cbtn) return;
+
+    var cell = cbtn.closest(".cell");
+    var attr = cell.getAttribute("data-attr");
+    var prof = profBySlot(slot);
+
+    markInteraction();
+
+    // Replace the control with the value. Reveals are irreversible and are
+    // carried back to the results page, so acquisition is a monotone record.
+    var val = document.createElement("span");
+    val.className = "cval";
+    val.textContent = prof.values[attr];
+    cbtn.replaceWith(val);
+
+    revealOrder.push({ opt: slot, attr: attr });
+    if (!state.revealed) {
+      state.revealed = 1;
+      state.t_reveal = Date.now() - t0;
+    }
+
+    recompute();
+    report();
+    reportHeight();
+  });
+
+  /* ---------------- report to Qualtrics parent ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage(
+        { source: "probe", probe: PROBE_ID, data: state },
+        "*"
+      );
+    } catch (err) { /* standalone preview */ }
+  }
+
+  var lastHeight = 0;
+  var ro = null; // must be retained, or it can be garbage collected and stop firing
+
+  function reportHeight() {
+    // body.scrollHeight, not documentElement.scrollHeight — the latter is
+    // floored at the viewport height and so never changes inside an iframe.
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage(
+        { source: "probe", probe: PROBE_ID, height: h },
+        "*"
+      );
+    } catch (err) { /* standalone preview */ }
+  }
+
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+
+  if (window.ResizeObserver) {
+    ro = new ResizeObserver(reportHeight);
+    ro.observe(document.body);
+  }
+
+  setInterval(reportHeight, 500);
+
+  renderList();
+  recompute();
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

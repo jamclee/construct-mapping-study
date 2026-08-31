@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comparisons</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.5; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  .blockinst {
+    font-size: 13.5px; color: #737b82; margin: 0 0 18px;
+    padding-bottom: 12px; border-bottom: 1px solid #eef1f4;
+  }
+  .counter { float: right; font-size: 12.5px; color: #9aa1a8; }
+
+  .lead { font-size: 15px; margin: 0 0 16px; }
+
+  .offers { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 0; }
+  .offer { border: 1px solid #dfe3e7; border-radius: 7px; padding: 14px 15px; background: #fff; }
+  .offer.sel { border-color: #2f6fb0; box-shadow: 0 0 0 1px #2f6fb0 inset; }
+  .oname { font-size: 15.5px; font-weight: 600; margin: 0 0 7px; }
+  .obody { font-size: 14px; margin: 0; }
+
+  .picks { display: flex; gap: 10px; margin: 16px 0 0; flex-wrap: wrap; }
+  .pickbtn {
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    padding: 9px 16px; border-radius: 5px; flex: 1 1 0; min-width: 130px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+    text-align: center;
+  }
+  .pickbtn:hover { border-color: #2f6fb0; color: #2f6fb0; background: #f2f7fc; }
+  .pickbtn.chosen { border-color: #2f6fb0; background: #2f6fb0; color: #fff; }
+
+  .qtext { font-size: 15px; font-weight: 500; margin: 20px 0 0; }
+
+  .contwrap { margin-top: 22px; padding-top: 16px; border-top: 1px solid #e6e8eb; }
+  .contbtn {
+    font-family: inherit; font-size: 14.5px; font-weight: 500;
+    padding: 10px 26px; border-radius: 5px;
+    border: 1px solid #2f6fb0; background: #2f6fb0; color: #fff; cursor: pointer;
+  }
+  .contbtn[disabled] { border-color: #dfe3e7; background: #f4f6f8; color: #a8afb6; cursor: default; }
+
+  .done { font-size: 15px; color: #737b82; padding: 22px 0; }
+
+  .pilot {
+    margin-top: 26px; padding: 12px 14px; border: 1px solid #e0c58a;
+    background: #fdf7e8; border-radius: 6px; font-size: 12.5px; color: #6a5320;
+  }
+  .pilot h4 { margin: 0 0 7px; font-size: 12.5px; }
+  .pilot code { font-size: 11.5px; }
+  .pilot .bad { color: #9c2c2c; font-weight: 600; }
+
+  @media (max-width: 560px) { .offers { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="blockinst" id="blockinst"></div>
+  <div id="screen"></div>
+  <div id="pilot"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     PROSE CHOICE BLOCK — distributed dominance inside filler comparisons
+
+     Companion to choice-block.html. Same block logic, prose presentation:
+     each option is a short paragraph, the attributes appear in a DIFFERENT
+     ORDER on each side, and one fact is stated in a different surface form on
+     each side. The comparison has to be assembled rather than read off.
+
+     THE SCRAMBLING IS IN THE FILLERS TOO, and that is the point. If the
+     critical set were the only prose set with unmatched attribute order, the
+     format itself would identify it — the same class of error as printing the
+     completeness statement on the critical set alone. Every set here carries
+     the same treatment.
+
+     A violation on the critical set is NOT the same defect as a violation in
+     choice-block.html. It is consistent with attending to the text and failing
+     to integrate it. That matters for any DV requiring multi-attribute
+     integration, but it is not "did not read", and it should be reported as
+     its own field rather than pooled. See response-coherence-probes.md §3.
+
+     NO AUTOMATED POOL CHECK. Dominance here lives in prose, so it cannot be
+     re-derived from the values the way choice-block.html does it. The
+     dominance checks in filler-choice-sets.md are hand-verified, and any edit
+     to the wording below has to be re-verified by hand. This is the one place
+     in the folder where the invariant is not machine-enforced.
+
+     URL PARAMETERS
+       crit     csv of critical set ids   (default "dom_catering")
+       fillers  csv of filler set ids     (default "P1,P3,P2")
+       seed     per-RESPONDENT seed, shared with the other blocks
+       pos      assigned position label, carried through as probe_position
+       pilot    1 to render the realised sequence
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "DOM_PROSE";
+
+  var BLOCK_INSTRUCTIONS =
+    "On the next few screens you'll see a series of everyday comparisons. " +
+    "For each one, assume the options are identical in every respect apart " +
+    "from what is described, and pick the one you would actually choose.";
+
+  /* ---------------- the pool ----------------
+     `dominated` names the profile no coherent respondent can choose.
+     `nearDominated` names one that is worse on all but one attribute and is
+     therefore a legitimate choice — these are the sets that defeat the
+     learned rule "avoid the option that looks obviously worse". */
+
+  var SETS = {
+
+    P1: {
+      kind: "filler", domain: "work", nearDominated: null,
+      lead: "Two tutoring agencies have each offered you the same work for the " +
+            "coming term. You can accept only one.",
+      profiles: [
+        { key: "a", name: "Kingsley Tutoring", lines: [
+          "Pays $22 an hour.",
+          "Sessions are booked a week ahead.",
+          "You travel to the student's home.",
+          "Materials are provided.",
+          "Paid monthly."
+        ]},
+        { key: "b", name: "Ravenshaw Learning", lines: [
+          "You print your own materials.",
+          "Pays $19 an hour.",
+          "You work from a central office.",
+          "Sessions are booked the day before.",
+          "Paid weekly."
+        ]}
+      ]
+    },
+
+    P2: {
+      kind: "filler", domain: "work", nearDominated: "b",
+      lead: "Two warehouses have each offered you evening shift work. " +
+            "You can accept only one.",
+      profiles: [
+        { key: "a", name: "Marden Logistics", lines: [
+          "Pays $18.75 an hour.",
+          "Shifts are posted a week ahead.",
+          "Parking on site is free.",
+          "Overtime is paid at one and a half times the normal rate.",
+          "The site is a 20-minute walk from the train."
+        ]},
+        { key: "b", name: "Halworth Depot", lines: [
+          "The site is a 5-minute walk from the train.",
+          "Overtime is paid at one and a quarter times the normal rate.",
+          "Shifts are posted two days ahead.",
+          "Parking costs $4 a day.",
+          "Pays $17.90 an hour."
+        ]}
+      ]
+    },
+
+    P3: {
+      kind: "filler", domain: "services", nearDominated: null,
+      lead: "Two moving companies have quoted for the same move.",
+      profiles: [
+        { key: "a", name: "Corley Removals", lines: [
+          "Quotes $460.",
+          "A crew of two.",
+          "They arrive some time between 9 and 12.",
+          "Furniture wrapping is included.",
+          "No damage cover."
+        ]},
+        { key: "b", name: "Vantage Move", lines: [
+          "Includes $2,000 of damage cover.",
+          "Quotes $525.",
+          "A crew of three.",
+          "They arrive at 8 am.",
+          "Furniture wrapping is $45 extra."
+        ]}
+      ]
+    },
+
+    /* ================= CRITICAL SET =================
+       Item B. Bracken Hill is better on all five: pay, notice, uniform,
+       distance, overtime rate. No arithmetic is required — $60 versus
+       provided, 15 versus 40 minutes, one and a half times versus the normal
+       rate are all direct comparisons — but the reader must hold five pairs
+       across two paragraphs in unmatched order. */
+
+    dom_catering: {
+      kind: "critical", domain: "work", dominated: "b",
+      lead: "Two catering companies have each offered you weekend shift work " +
+            "for the summer. The work itself is the same and you can accept only one.",
+      profiles: [
+        { key: "a", name: "Bracken Hill Catering", lines: [
+          "Pays $19.50 an hour.",
+          "Shifts are posted two weeks ahead.",
+          "The uniform is provided.",
+          "The site is a 15-minute walk from the bus stop.",
+          "Overtime is paid at one and a half times the normal rate."
+        ]},
+        { key: "b", name: "Fenwick Events", lines: [
+          "Shifts are posted three days ahead.",
+          "The site is a 40-minute walk from the bus stop.",
+          "Pays $17.25 an hour.",
+          "You buy your own uniform, which costs about $60.",
+          "Overtime is paid at the normal rate."
+        ]}
+      ]
+    }
+  };
+
+  /* ---------------- URL ---------------- */
+
+  function param(name) {
+    var m = new RegExp("[?&]" + name + "=([^&]*)").exec(window.location.search);
+    return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : null;
+  }
+  function csv(s) {
+    if (!s) return [];
+    return s.split(",").map(function (x) { return x.trim(); }).filter(Boolean);
+  }
+
+  var P = {
+    crit:    csv(param("crit")    || "dom_catering"),
+    fillers: csv(param("fillers") || "P1,P3,P2"),
+    seed:    param("seed"),
+    pos:     param("pos"),
+    pilot:   param("pilot") === "1"
+  };
+
+  /* ---------------- seeded RNG ---------------- */
+
+  function hashSeed(str) {
+    var h = 2166136261 >>> 0;
+    if (!str) str = String(Date.now()) + ":" + Math.random();
+    for (var i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    return h >>> 0;
+  }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  var seedUsed = P.seed || ("auto-" + Date.now() + "-" + Math.floor(Math.random() * 1e6));
+  var rng = mulberry32(hashSeed(seedUsed + "|" + PROBE_ID + "|" + P.crit.join(",")));
+
+  function shuffle(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(rng() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  /* ---------------- sequencing ----------------
+     Same constraints as choice-block.html: critical sets never first, never
+     last, never adjacent, always preceded by a filler of the same domain and
+     option count. Every prose set here is 2-option, so the binding constraint
+     is domain — the critical catering set must follow P1 or P2, not P3. */
+
+  var critIds  = P.crit.filter(function (id) { return !!SETS[id]; });
+  var fillerIds = P.fillers.filter(function (id) { return !!SETS[id]; });
+  var droppedCrit = P.crit.filter(function (id) { return !SETS[id]; });
+
+  function isCrit(id) { return SETS[id].kind === "critical"; }
+
+  function seqValid(seq) {
+    if (isCrit(seq[0]) || isCrit(seq[seq.length - 1])) return false;
+    var i, q;
+    for (i = 1; i < seq.length; i++) {
+      if (isCrit(seq[i]) && isCrit(seq[i - 1])) return false;
+    }
+    for (i = 0; i < seq.length; i++) {
+      if (!isCrit(seq[i])) continue;
+      var c = SETS[seq[i]], found = false;
+      for (q = 0; q < i; q++) {
+        var e = SETS[seq[q]];
+        if (!isCrit(seq[q]) && e.domain === c.domain &&
+            e.profiles.length === c.profiles.length) { found = true; break; }
+      }
+      if (!found) return false;
+    }
+    return true;
+  }
+
+  /* Rejection sampling over whole permutations rather than greedy insertion —
+     see the note in choice-block.html. Legal is not the same as uniform, and
+     the camouflage test needs position orthogonal to item. */
+  function buildSequence() {
+    var all = fillerIds.concat(critIds);
+    for (var attempt = 0; attempt < 2000; attempt++) {
+      var s = shuffle(all.slice());
+      if (seqValid(s)) return { seq: s, failed: 0 };
+    }
+    return { seq: fillerIds.concat(critIds), failed: 1 };
+  }
+
+  var built = buildSequence();
+  var sequence = built.seq;
+
+  /* ---------------- state ---------------- */
+
+  var t0 = Date.now();
+
+  var state = {
+    probe: PROBE_ID,
+    seed: seedUsed,
+    probe_position: P.pos,
+    sequence: sequence.join(","),
+    n_sets: sequence.length,
+    n_critical: critIds.length,
+    critical_requested: P.crit.join(","),
+    critical_dropped: droppedCrit.join(","),
+    block_constraint_failed: built.failed,
+    n_violations_block: 0,
+    n_near_dom_choices_block: 0,
+    n_sets_completed: 0,
+    block_complete: 0,
+    t_block_ms: null,
+    sets: []
+  };
+
+  /* ---------------- per-set display randomisation ----------------
+     Company names are inside the prose, so unlike the tabular block the names
+     cannot be reassigned to profiles — only the left/right order is
+     randomised. The names carry no information and are matched in register
+     across sets, so nothing downstream should key on them either. */
+
+  var display = {};
+  sequence.forEach(function (id) {
+    display[id] = { order: shuffle(SETS[id].profiles.map(function (_, i) { return i; })) };
+  });
+
+  /* ---------------- rendering ---------------- */
+
+  var screen = document.getElementById("screen");
+  var idx = 0, selected = null, changes = 0, tSetStart = 0, tFirst = null;
+
+  document.getElementById("blockinst").innerHTML =
+    '<span class="counter" id="counter"></span>' + BLOCK_INSTRUCTIONS;
+
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function renderSet() {
+    var id = sequence[idx], s = SETS[id], d = display[id];
+    selected = null; changes = 0; tFirst = null; tSetStart = Date.now();
+
+    document.getElementById("counter").textContent = (idx + 1) + " of " + sequence.length;
+
+    var h = '<p class="lead">' + esc(s.lead) + '</p><div class="offers">';
+    d.order.forEach(function (pi) {
+      var p = s.profiles[pi];
+      h += '<div class="offer" data-col="' + pi + '"><p class="oname">' + esc(p.name) + '</p>' +
+           '<p class="obody">' + p.lines.map(esc).join(" ") + '</p></div>';
+    });
+    h += '</div>';
+
+    h += '<p class="qtext">Which would you take?</p><div class="picks">';
+    d.order.forEach(function (pi) {
+      h += '<button type="button" class="pickbtn" data-pi="' + pi + '">' +
+           esc(s.profiles[pi].name) + '</button>';
+    });
+    h += '</div>';
+    h += '<div class="contwrap"><button type="button" class="contbtn" id="cont" disabled>Continue</button></div>';
+
+    screen.innerHTML = h;
+
+    Array.prototype.forEach.call(screen.querySelectorAll(".pickbtn"), function (btn) {
+      btn.addEventListener("click", function () {
+        var pi = parseInt(btn.getAttribute("data-pi"), 10);
+        if (selected !== null && selected !== pi) changes++;
+        if (tFirst === null) tFirst = Date.now() - tSetStart;
+        selected = pi;
+        Array.prototype.forEach.call(screen.querySelectorAll(".pickbtn"), function (b) {
+          b.classList.toggle("chosen", parseInt(b.getAttribute("data-pi"), 10) === pi);
+        });
+        Array.prototype.forEach.call(screen.querySelectorAll(".offer"), function (c) {
+          c.classList.toggle("sel", parseInt(c.getAttribute("data-col"), 10) === pi);
+        });
+        document.getElementById("cont").disabled = false;
+        reportHeight();
+      });
+    });
+
+    document.getElementById("cont").addEventListener("click", function () {
+      if (selected === null) return;
+      recordSet();
+      idx++;
+      if (idx < sequence.length) { renderSet(); } else { finish(); }
+      window.scrollTo(0, 0);
+      reportHeight();
+    });
+
+    reportHeight();
+  }
+
+  function recordSet() {
+    var id = sequence[idx], s = SETS[id], d = display[id];
+    var chosenKey = s.profiles[selected].key;
+    var row = {
+      id: id,
+      kind: s.kind,
+      domain: s.domain,
+      n_opt: s.profiles.length,
+      pos_block: idx + 1,
+      choice_key: chosenKey,
+      choice_name: s.profiles[selected].name,
+      display_order: d.order.map(function (pi) { return s.profiles[pi].key; }).join(","),
+      rt_first_ms: tFirst,
+      rt_ms: Date.now() - tSetStart,
+      changes: changes,
+      violation: null,
+      near_dom_choice: null,
+      pos_dominated: null
+    };
+
+    if (s.kind === "critical") {
+      row.violation = (chosenKey === s.dominated) ? 1 : 0;
+      row.pos_dominated = d.order.indexOf(
+        s.profiles.map(function (p) { return p.key; }).indexOf(s.dominated)
+      ) + 1;
+      state.n_violations_block += row.violation;
+
+      state[id + "_choice"]       = chosenKey;
+      state[id + "_violation"]    = row.violation;
+      state[id + "_rt_ms"]        = row.rt_ms;
+      state[id + "_rt_first_ms"]  = row.rt_first_ms;
+      state[id + "_changes"]      = row.changes;
+      state[id + "_pos_option"]   = row.pos_dominated;
+      state[id + "_pos_block"]    = row.pos_block;
+    } else {
+      row.near_dom_choice = s.nearDominated ? (chosenKey === s.nearDominated ? 1 : 0) : null;
+      if (row.near_dom_choice) state.n_near_dom_choices_block++;
+
+      state["fill_" + id + "_choice"]    = chosenKey;
+      state["fill_" + id + "_rt_ms"]     = row.rt_ms;
+      state["fill_" + id + "_pos_block"] = row.pos_block;
+      if (row.near_dom_choice !== null) {
+        state["fill_" + id + "_near_dom_choice"] = row.near_dom_choice;
+      }
+    }
+
+    state.sets.push(row);
+    state.n_sets_completed = state.sets.length;
+    report();
+  }
+
+  function finish() {
+    state.block_complete = 1;
+    state.t_block_ms = Date.now() - t0;
+    document.getElementById("counter").textContent = "";
+    screen.innerHTML = '<p class="done">Thank you — that\'s the end of this section.</p>';
+    report();
+    reportHeight();
+  }
+
+  /* ---------------- pilot panel ---------------- */
+
+  if (P.pilot) {
+    var order = sequence.map(function (id, i) {
+      return (i + 1) + ". " + id + (isCrit(id) ? "  [CRITICAL]" : "");
+    }).join("<br>");
+    document.getElementById("pilot").innerHTML =
+      '<div class="pilot"><h4>PILOT PANEL — not shown to respondents (pilot=1)</h4>' +
+      '<p><strong>Seed:</strong> <code>' + esc(seedUsed) + '</code>' +
+      (built.failed ? ' &nbsp; <span class="bad">SEQUENCE CONSTRAINTS COULD NOT BE MET</span>' : '') +
+      (droppedCrit.length ? ' &nbsp; <span class="bad">dropped: ' + esc(droppedCrit.join(",")) + '</span>' : '') +
+      '</p><p><strong>Realised order:</strong><br>' + order + '</p>' +
+      '<p>Prose dominance is hand-verified — there is no runtime pool check here. ' +
+      'Re-check filler-choice-sets.md by hand after any wording edit.</p></div>';
+  }
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(reportHeight, 500);
+
+  renderSet();
+  report();
+})();
+</script>
+</body>
+</html>

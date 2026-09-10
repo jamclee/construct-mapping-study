@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About You</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.5; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  .intro { margin: 0 0 22px; color: #4a5158; }
+
+  .qb { padding: 0 0 18px; margin: 0 0 18px; border-bottom: 1px solid #eef0f2; }
+  .qb:last-of-type { border-bottom: 0; }
+  .q { font-size: 15px; margin: 0 0 10px; }
+  .opts { display: flex; flex-direction: column; gap: 7px; }
+  .opt {
+    font-family: inherit; font-size: 14px; text-align: left;
+    padding: 9px 13px; border-radius: 6px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+  }
+  .opt:hover { border-color: #2f6fb0; color: #2f6fb0; }
+  .opt.picked { border-color: #2f6fb0; background: #2f6fb0; color: #fff; }
+
+  .foot { margin-top: 4px; font-size: 13px; color: #737b82; }
+  .foot.bad { color: #b3261e; }
+
+  .pilot { margin-top: 22px; padding: 11px 13px; border: 1px dashed #c8ced4;
+           border-radius: 6px; background: #fbfcfd; font-size: 12.5px; color: #4a5158; }
+  .pilot h4 { margin: 0 0 7px; font-size: 12.5px; letter-spacing: 0.3px; color: #737b82; }
+  .pilot code { font-family: ui-monospace, Menlo, Consolas, monospace; word-break: break-all; }
+
+  @media (min-width: 560px) { .opts { flex-direction: row; flex-wrap: wrap; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="intro">A few questions about your situation at the moment.</p>
+  <div id="qs"></div>
+  <p class="foot" id="foot"></p>
+  <div id="pilot"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     RELOCATION CIRCUMSTANCES BLOCK — upstream half of
+     hypothetical-relocation.html
+
+     WHAT THIS IS FOR. The relocation probe stipulates circumstances that
+     CONTRADICT the participant's own, and that contradiction is only
+     constructible if the real ones are known. This block collects them and
+     hands them forward.
+
+     IT IS NOT A CONDITION ASSIGNMENT. Nothing here routes anyone anywhere. The
+     probe reads these five facts and decides for itself which three to oppose
+     and which two to match, at random per participant. Contrast the pump task,
+     which passes a genuine experimental condition (`goal`) downstream. If you
+     ever do want control over WHICH dimensions get opposed, that would be a new
+     parameter on the probe, not something this block decides.
+
+     RUN IT FAR UPSTREAM, with other background material between it and the
+     probe. The scenario should read as a fresh hypothetical, not as a callback
+     to something the participant answered ten minutes ago.
+
+     FIVE LIVE ITEMS, FIVE FILLERS, INTERLEAVED. If the block were exactly the
+     five questions that later turn up as facts of the scenario, a participant
+     who noticed the correspondence would have been handed the manipulation.
+     The fillers are recorded but never read by the probe and never scored; they
+     are deliberately chosen to touch none of the scenario's subject matter —
+     nothing about transport, meals, laundry, storage or daily schedule — so
+     they cannot introduce a preference that predicts a conflict item.
+
+     THE SCHEDULE ITEM ASKS ABOUT THE SHAPE OF THE DAY, not about work hours.
+     Participants who are retired, studying, between jobs or caring at home can
+     answer it accurately, whereas a work-hours question would leave them with
+     nothing true to pick. That matters more here than usual: the probe requires
+     ALL FIVE values, so a single unanswerable item costs the whole record.
+
+     NO "PREFER NOT TO SAY" ON THE LIVE FIVE. None is sensitive enough to need
+     one, and an unmappable answer is not a partial loss but a total one. Gate
+     the survey's Next button on `complete` (see the .md) rather than offering an
+     escape hatch.
+
+     OUTPUT. `chain_qs` is the field to pipe — a ready-made query string in the
+     exact form the probe expects. Piping one field rather than five removes four
+     chances to mistype a parameter name, and matches how the directional battery
+     feeds the apartment choice.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "RELOC_CIRC";
+
+  /* live: id is the query-string parameter the probe reads.
+     Option `v` values are the exact tokens the probe validates against —
+     case-sensitive, do not edit one side without the other. */
+  var QUESTIONS = [
+    { id: "f_address", live: false,
+      q: "How long have you lived at your current address?",
+      opts: [ { v: "lt1",  t: "Less than a year" },
+              { v: "1to3", t: "One to three years" },
+              { v: "3to10", t: "Three to ten years" },
+              { v: "gt10", t: "More than ten years" } ] },
+
+    { id: "car", live: true,
+      q: "Do you have regular access to a car?",
+      opts: [ { v: "yes", t: "Yes" },
+              { v: "no",  t: "No" } ] },
+
+    { id: "f_vision", live: false,
+      q: "Do you wear glasses or contact lenses?",
+      opts: [ { v: "yes", t: "Yes" },
+              { v: "no",  t: "No" } ] },
+
+    { id: "hh", live: true,
+      q: "Do you live alone, or with other people?",
+      opts: [ { v: "alone",  t: "I live alone" },
+              { v: "shared", t: "I live with other people" } ] },
+
+    { id: "f_reading", live: false,
+      q: "How often do you read a physical newspaper or magazine?",
+      opts: [ { v: "never",   t: "Almost never" },
+              { v: "monthly", t: "A few times a month" },
+              { v: "weekly",  t: "About weekly" },
+              { v: "daily",   t: "Most days" } ] },
+
+    { id: "shift", live: true,
+      q: "Which best describes your usual weekday schedule?",
+      opts: [ { v: "day",     t: "Generally occupied during the day, free in the evening" },
+              { v: "evening", t: "Generally free during the day, occupied in the evening" } ] },
+
+    { id: "f_tv", live: false,
+      q: "About how many hours of television or streaming do you watch in a week?",
+      opts: [ { v: "lt5",   t: "Under five" },
+              { v: "5to10", t: "Five to ten" },
+              { v: "10to20", t: "Ten to twenty" },
+              { v: "gt20",  t: "More than twenty" } ] },
+
+    { id: "freezer", live: true,
+      q: "Does your home have a freezer other than the compartment inside your refrigerator?",
+      opts: [ { v: "yes", t: "Yes" },
+              { v: "no",  t: "No" } ] },
+
+    { id: "f_born", live: false,
+      q: "Were you born in the state where you currently live?",
+      opts: [ { v: "yes", t: "Yes" },
+              { v: "no",  t: "No" } ] },
+
+    { id: "laundry", live: true,
+      q: "Where do you usually do your laundry?",
+      opts: [ { v: "machine",   t: "In a washer at home" },
+              { v: "laundromat", t: "At a laundromat or a shared facility" } ] }
+  ];
+
+  var LIVE = QUESTIONS.filter(function (q) { return q.live; }).map(function (q) { return q.id; });
+
+  function qparam(k) {
+    var m = new RegExp("[?&]" + k + "=([^&]*)").exec(window.location.search);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+  function shuffle(a) {
+    var r = a.slice();
+    for (var i = r.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1)); var t = r[i]; r[i] = r[j]; r[j] = t;
+    }
+    return r;
+  }
+
+  /* ---------------- state ---------------- */
+
+  var t0 = Date.now();
+  var answers = {};
+  var state = {
+    probe: PROBE_ID,
+    car: null, hh: null, shift: null, freezer: null, laundry: null,
+    chain_qs: null,                 // THE FIELD TO PIPE
+    filler_answers: null,           // recorded, never read by the probe
+    n_answered_live: 0,
+    n_answered_all: 0,
+    complete: 0,                    // 1 when all five live items are answered
+    n_changes: 0,
+    t_first_interaction: null,
+    t_complete: null
+  };
+
+  /* ---------------- render ---------------- */
+
+  /* Option order is randomised per question so that a participant who clicks
+     the first option throughout does not produce a systematic circumstance
+     profile. The live items are NOT reordered — their positions are chosen to
+     keep them non-adjacent. */
+  document.getElementById("qs").innerHTML = QUESTIONS.map(function (q) {
+    return '<div class="qb" data-q="' + q.id + '">' +
+             '<p class="q">' + q.q + '</p>' +
+             '<div class="opts">' +
+               shuffle(q.opts).map(function (o) {
+                 return '<button type="button" class="opt" data-v="' + o.v + '">' + o.t + '</button>';
+               }).join("") +
+             '</div>' +
+           '</div>';
+  }).join("");
+
+  /* ---------------- responses ---------------- */
+
+  function refresh() {
+    var live = 0, all = 0, fillers = [];
+    QUESTIONS.forEach(function (q) {
+      if (answers[q.id] === undefined) return;
+      all += 1;
+      if (q.live) live += 1; else fillers.push(q.id + ":" + answers[q.id]);
+    });
+
+    LIVE.forEach(function (id) { state[id] = answers[id] === undefined ? null : answers[id]; });
+    state.filler_answers = fillers.length ? fillers.join(",") : null;
+    state.n_answered_live = live;
+    state.n_answered_all = all;
+
+    var wasComplete = state.complete;
+    state.complete = live === LIVE.length ? 1 : 0;
+    state.chain_qs = state.complete
+      ? LIVE.map(function (id) { return id + "=" + encodeURIComponent(answers[id]); }).join("&")
+      : null;
+    if (state.complete && !wasComplete) state.t_complete = Date.now() - t0;
+
+    /* A quiet progress line, not a warning. The iframe does not own the survey's
+       Next button, so it cannot know when someone actually tried to advance —
+       a red "answer every question" sitting there from the first click would be
+       scolding a participant who is simply still working. Blocking and
+       explaining is the Qualtrics gate's job (see the .md). */
+    var foot = document.getElementById("foot");
+    foot.className = "foot";
+    foot.textContent = (all === 0 || state.complete && all === QUESTIONS.length)
+      ? ""
+      : "Answered " + all + " of " + QUESTIONS.length + ".";
+    renderPilot();
+  }
+
+  document.getElementById("qs").addEventListener("click", function (e) {
+    var btn = e.target.closest(".opt");
+    if (!btn) return;
+    if (state.t_first_interaction === null) state.t_first_interaction = Date.now() - t0;
+
+    var block = btn.closest(".qb");
+    var id = block.getAttribute("data-q");
+    if (answers[id] !== undefined && answers[id] !== btn.getAttribute("data-v")) state.n_changes += 1;
+
+    block.querySelectorAll(".opt").forEach(function (b) {
+      b.classList.toggle("picked", b === btn);
+    });
+    answers[id] = btn.getAttribute("data-v");
+
+    refresh();
+    report();
+    reportHeight();
+  });
+
+  /* ---------------- pilot panel ---------------- */
+
+  function renderPilot() {
+    if (qparam("pilot") !== "1") return;
+    document.getElementById("pilot").innerHTML =
+      '<div class="pilot"><h4>PILOT PANEL — not shown to respondents (pilot=1)</h4>' +
+      '<p><strong>complete:</strong> ' + state.complete +
+      ' &nbsp; (' + state.n_answered_live + ' of ' + LIVE.length + ' live items)</p>' +
+      '<p><strong>chain_qs:</strong> <code>' + (state.chain_qs || "—") + '</code></p>' +
+      '<p><strong>fillers:</strong> <code>' + (state.filler_answers || "—") + '</code></p>' +
+      (state.chain_qs
+        ? '<p>Probe URL: <code>hypothetical-relocation.html?' + state.chain_qs + '&pilot=1</code></p>'
+        : '') +
+      '</div>';
+  }
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(reportHeight, 1000);
+
+  refresh();
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

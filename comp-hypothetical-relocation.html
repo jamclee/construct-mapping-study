@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Six Months in Ashfield</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.5; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  #scenario { margin: 0 0 20px; }
+  #scenario p { margin: 0 0 11px; }
+  #scenario p:last-child { margin-bottom: 0; }
+
+  .progress {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12.5px; color: #737b82;
+    padding-bottom: 8px; border-bottom: 1px solid #e6e8eb; margin-bottom: 16px;
+  }
+  .dots { display: flex; gap: 5px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #dfe3e7; }
+  .dot.done { background: #9fb8d1; }
+  .dot.current { background: #2f6fb0; }
+
+  .viewport { overflow: hidden; }
+  .track { display: flex; align-items: flex-start; transition: transform 0.28s ease; }
+  .slide { flex: 0 0 100%; min-width: 100%; padding: 0 1px; }
+
+  .tname { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
+
+  .opts2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .ocard {
+    border: 1px solid #dfe3e7; border-radius: 7px; padding: 13px 14px;
+    background: #fff; cursor: pointer;
+  }
+  .ocard:hover { border-color: #2f6fb0; }
+  .ocard.picked { border-color: #2f6fb0; box-shadow: 0 0 0 1px #2f6fb0 inset; }
+  .oname { font-size: 14px; font-weight: 600; margin: 0 0 5px; }
+  .odesc { font-size: 12.5px; color: #4a5158; margin: 0; }
+
+  .nav { display: flex; justify-content: space-between; gap: 10px; margin-top: 20px; }
+  .navbtn {
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    padding: 8px 20px; border-radius: 5px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer;
+  }
+  .navbtn:hover:not(:disabled) { border-color: #2f6fb0; color: #2f6fb0; }
+  .navbtn:disabled { opacity: 0.4; cursor: default; }
+  .navbtn.primary { border-color: #2f6fb0; background: #2f6fb0; color: #fff; }
+  .navbtn.primary:hover:not(:disabled) { background: #275e97; color: #fff; }
+  .navbtn.primary:disabled { background: #b7c9db; border-color: #b7c9db; color: #fff; opacity: 1; }
+
+  #done { display: none; margin-top: 18px; font-size: 14px; color: #4a5158; }
+  #done.open { display: block; }
+
+  .pilot { margin-top: 22px; padding: 11px 13px; border: 1px dashed #c8ced4;
+           border-radius: 6px; background: #fbfcfd; font-size: 12.5px; color: #4a5158; }
+  .pilot h4 { margin: 0 0 7px; font-size: 12.5px; letter-spacing: 0.3px; color: #737b82; }
+  .pilot code { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .bad { color: #b3261e; font-weight: 600; }
+
+  @media (max-width: 560px) { .opts2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="scenario"></div>
+
+  <div class="progress">
+    <span id="counter"></span>
+    <span class="dots" id="dots"></span>
+  </div>
+
+  <div class="viewport"><div class="track" id="track"></div></div>
+
+  <div class="nav">
+    <button type="button" class="navbtn" id="backBtn">Back</button>
+    <button type="button" class="navbtn primary" id="nextBtn">Next</button>
+  </div>
+
+  <div id="done">Your answers have been recorded. Please continue.</div>
+  <div id="pilot"></div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     PREMISE-ADOPTION PROBE — HYPOTHETICAL RELOCATION
+
+     THE CELL THIS FILLS. The other two probes in this set pit the participant
+     against something outside themselves: another person's taste (the care
+     package) or an assigned objective (the goal and role probes). Neither
+     touches the thing a scenario study actually rests on — that a participant
+     will reason from STIPULATED CIRCUMSTANCES that are not their own. The
+     conflict here is between the participant's real situation and their
+     hypothetical one.
+
+     WHY IT NEEDS TAILORING. The documented failure mode of hypothetical
+     scenarios is answering from your actual life. That failure is only
+     observable where the stipulated circumstance DIFFERS from the real one, so
+     the real ones have to be known. Five are piped in from an upstream block;
+     three are then stipulated as their opposite and two as matching. Every
+     participant therefore has a conflict denominator of exactly three.
+
+     TWO MATCHED DIMENSIONS, NOT ONE. The gift probe leaves a single item where
+     the friend agrees with the participant, which is too thin to do its job: one
+     binary cannot distinguish a participant who inverted everything from one who
+     adopted and slipped once. Two matched dimensions give the congruent score a
+     denominator of two.
+
+     BLANKET INVERSION IS NOT REALLY AVAILABLE HERE, which is a structural
+     advantage of piping the circumstances rather than eliciting them in-probe.
+     In the care package the participant sees their own earlier choices played
+     back and can invert them. Here the circumstances arrive from a block
+     answered much earlier and are presented simply as facts of the scenario —
+     there is no visible "your answer" to invert. The congruent items are a
+     spot-check, not the main guard.
+
+     ── THE THREE ITEM TYPES ──────────────────────────────────────────────
+
+     CONFLICT ITEMS (3). The stipulated circumstance is the opposite of the
+     participant's own, and each option is the sensible one under exactly one of
+     them. n_adopted_on_conflict is the key measure; n_projected_on_conflict is
+     its complement and the more interpretable number for a reader, since it
+     counts how often they answered from their real life.
+
+     These are PREFERENCE implications, not logical entailments. Having no car
+     does not make an out-of-town superstore impossible, it makes it a poor
+     idea. That register matters: an item whose answer is forced is a
+     comprehension item, and this probe already has three of those.
+
+     CONGRUENT ITEMS (2). Stipulated matches actual, so both standpoints point
+     the same way. Scored separately, never folded into the conflict score.
+
+     DECOY ITEMS (2). The scenario says nothing bearing on them, so they have no
+     right answer, and roughly a quarter of the choices are therefore ungraded.
+     That is what keeps the task from reading as graded throughout.
+
+     BE HONEST ABOUT WHAT THE DECOYS DO NOT DO HERE. In the care package the
+     decoys yield a baseline projection rate, because phase 1 recorded the
+     participant's own choice on those same categories. Nothing upstream records
+     a preference on a phone tariff, so these decoys are camouflage only. Do not
+     report them as a baseline.
+
+     INFERENCE ITEMS (3). On each, one option is ruled out by a fact the scenario
+     states but never applies — the placement is six months, so a twelve-month
+     commitment runs past it; the last bus leaves at 7:10pm, so a class ending
+     at 9:30pm strands you. This is the part that speaks to
+     whether a participant built a model of the situation at all rather than
+     merely reading the words: stated facts can be looked up, implications
+     cannot.
+
+     THEY ARE WRITTEN AS DECISIONS, NOT AS QUESTIONS. An earlier version asked
+     them outright — "roughly how late could you stay?", four options, one right
+     — which is a comprehension quiz in everything but name, and a quiz appended
+     to a consumer task is exactly the kind of thing that tells a participant
+     they are being tested and makes them vigilant for the rest of the study.
+     They are now ordinary binary choices in the same card format, in the same
+     uninterrupted run, with no section label and no change in the counter. A
+     participant experiences ten decisions about a placement, not seven
+     decisions and three questions about them.
+
+     THE WRONG OPTION CARRIES THE VISIBLE ADVANTAGE in every pair — a lower
+     monthly rate, a better price per film. Choosing correctly therefore costs
+     something and cannot be had by taking whatever looks cheapest, which is
+     what keeps these from being answerable by a shallow rule.
+
+     TWO BACKGROUND FACTS ACROSS THREE ITEMS. The gym and cinema items both turn
+     on the placement length and the class item on the bus. That is deliberate
+     rather than a shortfall: the index is a control for whether the setting was
+     encoded at all, not a broad reasoning battery, and three surfaces over two
+     facts is enough to establish it. Do not read it as a general ability score.
+
+     ── WHAT THE INFERENCE ITEMS ARE FOR, AND WHAT THEY ARE NOT ──────────
+
+     THEY ARE THE CONTROL, NOT THE OUTCOME. Scored as the headline they would
+     make this a second comprehension probe. Their job is to license the reading
+     of the conflict score:
+
+                         inference >= 2/3      inference < 2/3
+       adopted             adopted              coincidence
+       projected           PROJECTED            not_modelled
+
+     Only the built-the-model-and-still-answered-from-their-own-life cell is a
+     premise-adoption failure. The bottom-right cell is a reading failure and
+     must not be reported as one.
+
+     THE SCENARIO STAYS VISIBLE THROUGHOUT, including during the inference
+     items, so nothing is a memory test — the same choice the rules-comprehension
+     probe makes on purpose. Co-visibility does not weaken these items the way it
+     would weaken recall: the scenario states a date and a bus time, and neither
+     says anything about gym contracts or pottery classes. The fact has to be
+     retrieved and applied, which is the property the rules probe relies on for
+     its own discriminating items.
+
+     INFERENCE ITEMS KEY ON FIXED BACKGROUND FACTS — the placement length, the
+     walk to the centre, the bus timetable — never on the tailored circumstances.
+     Their correct answers are therefore the same for every participant, which
+     keeps the index comparable across the tailoring.
+
+     THEY COME LAST IN THE RUN, never first. Consulting the scenario to settle
+     one of these would prime consulting it on the items being measured, which
+     would inflate adoption. Back is sealed at that boundary for the same reason
+     — but silently, since nothing on screen marks where the boundary is.
+
+     ── INPUT ─────────────────────────────────────────────────────────────
+     Five parameters, all required, from the upstream circumstances block:
+
+       car      yes | no
+       hh       alone | shared
+       shift    day | evening
+       freezer  yes | no
+       laundry  machine | laundromat   (legacy "launderette" also accepted)
+
+       hypothetical-relocation.html?car=yes&hh=alone&shift=day&freezer=yes&laundry=machine
+
+     If any is missing or invalid, all five are randomised and own_source is
+     logged as "random" so the file stays testable standalone — but such a
+     record is not real data and must be dropped, exactly as with an unpiped
+     goal in the titration probe. Add pilot=1 for a diagnostic panel.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "HYPO_RELOC";
+  var N_MATCHED = 2;        // dimensions stipulated to MATCH the participant
+
+  /* Each dimension: the two values it can take, the sentence that states it in
+     the scenario, and which option each value implies on that dimension's item. */
+  var DIMS = {
+    hh: {
+      values: ["alone", "shared"],
+      says: {
+        alone:  "You have a small apartment to yourself.",
+        shared: "You are sharing an apartment with three other people from the placement."
+      },
+      item: {
+        label: "A meal kit service is running an introductory offer. Which would you take?",
+        x: { name: "Single-portion box", desc: "Five meals a week, one portion each" },
+        y: { name: "Family box", desc: "Five meals a week, four portions each" }
+      },
+      implies: { alone: "x", shared: "y" }
+    },
+    car: {
+      values: ["yes", "no"],
+      says: {
+        yes: "You have your car with you.",
+        no:  "You did not bring a car."
+      },
+      item: {
+        label: "How would you do your food shopping?",
+        x: { name: "One big trip a week", desc: "To the big supermarket out by the highway" },
+        y: { name: "Small trips every few days", desc: "To the grocery store downtown" }
+      },
+      implies: { yes: "x", no: "y" }
+    },
+    shift: {
+      values: ["day", "evening"],
+      says: {
+        day:     "You work standard office hours, Monday through Friday.",
+        evening: "Your shifts run from 2pm until 10pm, Tuesday through Saturday."
+      },
+      item: {
+        label: "You set up a grocery delivery. Which standing slot would you book?",
+        x: { name: "Weekday evenings", desc: "Between 6pm and 9pm" },
+        y: { name: "Weekday mornings", desc: "Between 8am and 11am" }
+      },
+      implies: { day: "x", evening: "y" }
+    },
+    freezer: {
+      values: ["yes", "no"],
+      says: {
+        yes: "There is a chest freezer in the apartment.",
+        no:  "The refrigerator has only a small freezer compartment, nothing you could store much in."
+      },
+      item: {
+        label: "A local company offers two ways to buy prepared food. Which suits you better?",
+        x: { name: "Frozen bundle", desc: "Twenty portions delivered in one go" },
+        y: { name: "Fresh box", desc: "Four portions delivered twice a week" }
+      },
+      implies: { yes: "x", no: "y" }
+    },
+    laundry: {
+      values: ["machine", "laundromat"],
+      says: {
+        machine:     "There is a washer and dryer in the apartment.",
+        laundromat:  "There is no washer in the apartment; the nearest laundromat is a five-minute walk."
+      },
+      item: {
+        label: "Two offers come through the door in your first week. Which would be more use to you?",
+        x: { name: "Bulk detergent", desc: "A 12-pound box, one third off" },
+        y: { name: "Laundry service", desc: "Two loads collected and returned each week" }
+      },
+      implies: { machine: "x", laundromat: "y" }
+    }
+  };
+
+  var DIM_ORDER = ["hh", "car", "shift", "freezer", "laundry"];
+
+  /* Nothing in the scenario bears on either of these. */
+  var DECOYS = [
+    { id: "phone", label: "Your cell phone plan is up for renewal. Which would you switch to?",
+      x: { name: "More data", desc: "Larger data allowance, few minutes abroad" },
+      y: { name: "More international minutes", desc: "Generous minutes abroad, less data" } },
+    { id: "stream", label: "You add one bundle to your streaming subscription. Which?",
+      x: { name: "Movies and drama", desc: "Back catalog plus new releases" },
+      y: { name: "Sports", desc: "Live games and highlights" } }
+  ];
+
+  /* INFERENCE ITEMS. Ordinary binary choices in the same card format as
+     everything else — see the header on register. On each, one option is ruled
+     out by a FIXED background fact (the placement length, or the last bus), so
+     the correct answer is the same for every participant regardless of the
+     tailoring. In each pair the wrong option carries the visible advantage — a
+     lower monthly rate, a better per-film price — so choosing correctly costs
+     something and cannot be had by picking whatever looks cheapest. */
+  var INFERENCE = [
+    { id: "gym", correct: "y",
+      label: "You look at the gym downtown. It sells two kinds of membership.",
+      x: { name: "Twelve-month membership", desc: "$29 a month, twelve-month minimum" },
+      y: { name: "Month-to-month membership", desc: "$39 a month, cancel any time" } },
+
+    { id: "class", correct: "y",
+      label: "A pottery class downtown runs the same course at two times. Which would you sign up for?",
+      x: { name: "Thursday evenings", desc: "7:30pm to 9:30pm" },
+      y: { name: "Saturday mornings", desc: "10am to 12pm" } },
+
+    { id: "cinema", correct: "y",
+      label: "The movie theater downtown sells two kinds of pass.",
+      x: { name: "Annual pass", desc: "$120, unlimited movies for twelve months" },
+      y: { name: "Ten-movie pass", desc: "$70, ten movies, no expiration" } }
+  ];
+
+  var OPENING =
+    "Imagine that you have taken a six-month placement in Ashfield, a town " +
+    "a couple of hours from where you live now. You moved in at the start of " +
+    "October and the placement runs to the end of March.";
+
+  var GEOGRAPHY =
+    "The apartment is a 25-minute walk from downtown. One bus route serves the " +
+    "street. It runs once an hour, and the last bus back from downtown leaves " +
+    "at 7:10pm.";
+
+  /* ---------------- helpers ---------------- */
+
+  function qparam(k) {
+    var m = new RegExp("[?&]" + k + "=([^&]*)").exec(window.location.search);
+    return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : null;
+  }
+  function coin() { return Math.random() < 0.5; }
+  function shuffle(a) {
+    var r = a.slice();
+    for (var i = r.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1)); var t = r[i]; r[i] = r[j]; r[j] = t;
+    }
+    return r;
+  }
+  function opposite(dim, v) {
+    var vs = DIMS[dim].values;
+    return v === vs[0] ? vs[1] : vs[0];
+  }
+
+  /* ---------------- circumstances ---------------- */
+
+  var actual = {}, ownSource = "url", bad = [];
+  /* One accepted synonym. The laundry level was renamed launderette ->
+     laundromat when the scenario was localised for US participants; an upstream
+     block built against the earlier name would otherwise fail validation
+     silently and cost the whole record. Validation stays strict otherwise —
+     the point of it is catching typos, not rejecting a name we changed. */
+  var ALIASES = { laundry: { launderette: "laundromat" } };
+
+  DIM_ORDER.forEach(function (d) {
+    var v = qparam(d);
+    if (v !== null && ALIASES[d] && ALIASES[d][v]) v = ALIASES[d][v];
+    if (v !== null && DIMS[d].values.indexOf(v) !== -1) { actual[d] = v; }
+    else { bad.push(d + "=" + String(qparam(d))); }
+  });
+  if (bad.length) {
+    /* All five are randomised together, not just the missing ones: a half-piped
+       record is not more usable than an unpiped one, and mixing the two sources
+       would make own_source meaningless. */
+    ownSource = "random";
+    DIM_ORDER.forEach(function (d) { actual[d] = DIMS[d].values[coin() ? 0 : 1]; });
+  }
+
+  var matched = shuffle(DIM_ORDER).slice(0, N_MATCHED);
+  var stipulated = {};
+  DIM_ORDER.forEach(function (d) {
+    stipulated[d] = matched.indexOf(d) !== -1 ? actual[d] : opposite(d, actual[d]);
+  });
+  var opposed = DIM_ORDER.filter(function (d) { return matched.indexOf(d) === -1; });
+
+  /* ---------------- state ---------------- */
+
+  var t0 = Date.now();
+  var state = {
+    probe: PROBE_ID,
+    own_source: ownSource,
+    own_missing: bad.length ? bad.join(";") : null,
+    actual_map: DIM_ORDER.map(function (d) { return d + ":" + actual[d]; }).join(","),
+    stipulated_map: DIM_ORDER.map(function (d) { return d + ":" + stipulated[d]; }).join(","),
+    opposed_dims: opposed.join(","),
+    matched_dims: matched.join(","),
+
+    item_order: null,
+    side_order: null,
+    choices: null,
+
+    n_conflict_items: opposed.length,          // 3 by construction
+    n_adopted_on_conflict: 0,                  // THE KEY MEASURE
+    n_projected_on_conflict: 0,                // answered from their real life
+    n_congruent_items: matched.length,         // 2
+    n_congruent_consistent: 0,
+    decoy_choices: null,
+    n_answered: 0,
+
+    entailed_pattern: null,
+    n_entailed_correct: 0,                     // 0-3 — the CONTROL, not the outcome
+    adoption_cell: null,                       // adopted | projected | coincidence | not_modelled
+
+    trial_dwell: null,
+    n_back: 0,
+    max_item_reached: 0,
+    t_first_interaction: null,
+    t_last_choice: null,
+    t_inference_start: null,
+    finished: 0,
+    t_finished: null
+  };
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) state.t_first_interaction = Date.now() - t0;
+  }
+
+  /* ---------------- scenario ---------------- */
+
+  document.getElementById("scenario").innerHTML =
+    '<p>' + OPENING + '</p>' +
+    '<p>' + DIM_ORDER.map(function (d) { return DIMS[d].says[stipulated[d]]; }).join(" ") + '</p>' +
+    '<p>' + GEOGRAPHY + '</p>' +
+    '<p>Below are some of the decisions you would have to make in your first few weeks there.</p>';
+
+  /* ---------------- items ---------------- */
+
+  var CHOICES = shuffle(
+    DIM_ORDER.map(function (d) {
+      return { id: d, kind: matched.indexOf(d) !== -1 ? "congruent" : "conflict",
+               label: DIMS[d].item.label, x: DIMS[d].item.x, y: DIMS[d].item.y };
+    }).concat(DECOYS.map(function (dc) {
+      return { id: dc.id, kind: "decoy", label: dc.label, x: dc.x, y: dc.y };
+    }))
+  );
+  var NC = CHOICES.length;                       // 7 tailored + decoy items
+  /* Appended AFTER the measured items so that consulting the scenario for one
+     of these cannot prime consultation on the items being scored. They are not
+     marked out in any other way — same format, same run, same counter. */
+  CHOICES = CHOICES.concat(shuffle(INFERENCE).map(function (f) {
+    return { id: f.id, kind: "inference", label: f.label, x: f.x, y: f.y, correct: f.correct };
+  }));
+  state.item_order = CHOICES.map(function (c) { return c.id; }).join(",");
+
+  var sideOrder = CHOICES.map(function () { return coin(); });   // true = x first
+  state.side_order = sideOrder.map(function (s) { return s ? "x" : "y"; }).join(",");
+
+  function optCard(o, kind) {
+    return '<div class="ocard" data-kind="' + kind + '">' +
+             '<p class="oname">' + o.name + '</p>' +
+             '<p class="odesc">' + o.desc + '</p>' +
+           '</div>';
+  }
+
+  var slidesHtml = CHOICES.map(function (c, i) {
+    var first  = sideOrder[i] ? c.x : c.y;
+    var second = sideOrder[i] ? c.y : c.x;
+    var fk = sideOrder[i] ? "x" : "y", sk = sideOrder[i] ? "y" : "x";
+    return '<div class="slide" data-choice="' + i + '">' +
+             '<p class="tname">' + c.label + '</p>' +
+             '<div class="opts2">' + optCard(first, fk) + optCard(second, sk) + '</div>' +
+           '</div>';
+  });
+
+  document.getElementById("track").innerHTML = slidesHtml.join("");
+  document.getElementById("dots").innerHTML =
+    slidesHtml.map(function () { return '<span class="dot"></span>'; }).join("");
+
+  /* ---------------- carousel ---------------- */
+
+  var TOTAL = CHOICES.length;                    // 10, one uniform run
+  var track = document.getElementById("track");
+  var backBtn = document.getElementById("backBtn");
+  var nextBtn = document.getElementById("nextBtn");
+  var picks = new Array(TOTAL).fill(null);
+  var dwell = new Array(TOTAL).fill(0);
+  var index = 0;
+  var enteredAt = Date.now();
+  var infSeen = false;
+
+  function accrue() {
+    var now = Date.now();
+    dwell[index] += now - enteredAt;
+    enteredAt = now;
+    state.trial_dwell = dwell.join(",");
+  }
+
+  function ready(i) { return picks[i] !== null; }
+
+  function render() {
+    track.style.transform = "translateX(-" + (index * 100) + "%)";
+    document.getElementById("counter").textContent =
+      "Item " + (index + 1) + " of " + TOTAL;
+    document.querySelectorAll(".dot").forEach(function (d, i) {
+      d.classList.toggle("current", i === index);
+      d.classList.toggle("done", i !== index && ready(i));
+    });
+    // Sealed at the inference boundary: the inference items reveal which
+    // scenario details matter, so choices must not be revisable after them.
+    backBtn.disabled = index === 0 || (infSeen && index >= NC);
+    nextBtn.disabled = !ready(index);
+    nextBtn.textContent = index === TOTAL - 1 ? "Done" : "Next";
+    if (index > state.max_item_reached) state.max_item_reached = index;
+    reportHeight();
+  }
+
+  function goTo(i) {
+    accrue();
+    index = i;
+    if (index >= NC && !infSeen) {
+      infSeen = true;
+      state.t_inference_start = Date.now() - t0;
+    }
+    enteredAt = Date.now();
+    render();
+    report();
+  }
+
+  backBtn.addEventListener("click", function () {
+    if (backBtn.disabled) return;
+    markInteraction();
+    state.n_back += 1;
+    goTo(index - 1);
+  });
+
+  nextBtn.addEventListener("click", function () {
+    markInteraction();
+    if (index < TOTAL - 1) { goTo(index + 1); return; }
+    accrue();
+    state.finished = 1;
+    state.t_finished = Date.now() - t0;
+    nextBtn.disabled = true;
+    backBtn.disabled = true;
+    document.getElementById("done").classList.add("open");
+    report();
+    reportHeight();
+  });
+
+  /* ---------------- scoring ---------------- */
+
+  function score() {
+    var answered = 0, adopted = 0, projected = 0, congruent = 0, decoys = [];
+
+    CHOICES.forEach(function (c, i) {
+      var p = picks[i];
+      if (p === null) return;
+      answered += 1;
+      if (c.kind === "decoy") { decoys.push(c.id + ":" + p); return; }
+      if (c.kind === "inference") return;          // scored separately below
+
+      var impl = DIMS[c.id].implies;
+      if (c.kind === "conflict") {
+        if (p === impl[stipulated[c.id]]) adopted += 1;
+        else if (p === impl[actual[c.id]]) projected += 1;
+      } else {
+        // congruent: both standpoints point the same way
+        if (p === impl[stipulated[c.id]]) congruent += 1;
+      }
+    });
+
+    state.choices = CHOICES.map(function (c, i) {
+      return c.id + ":" + (picks[i] === null ? "-" : picks[i]);
+    }).join(",");
+    state.n_answered = answered;
+    state.n_adopted_on_conflict = adopted;
+    state.n_projected_on_conflict = projected;
+    state.n_congruent_consistent = congruent;
+    state.decoy_choices = decoys.length ? decoys.join(",") : null;
+
+    var nCorrect = 0, complete = true, pat = [];
+    CHOICES.forEach(function (c, i) {
+      if (c.kind !== "inference") return;
+      if (picks[i] === null) { complete = false; pat.push(c.id + ":-"); return; }
+      var hit = picks[i] === c.correct;
+      if (hit) nCorrect += 1;
+      pat.push(c.id + ":" + (hit ? "1" : "0"));
+    });
+    state.n_entailed_correct = nCorrect;
+    state.entailed_pattern = pat.join(",");
+
+    /* The 2x2. Thresholds are majorities of small denominators — 2 of 3 either
+       way — so read the raw counts alongside it rather than the label alone. */
+    if (complete && adopted + projected === opposed.length) {
+      var built = nCorrect >= 2;
+      var took = adopted >= 2;
+      state.adoption_cell = built
+        ? (took ? "adopted" : "projected")
+        : (took ? "coincidence" : "not_modelled");
+    } else {
+      state.adoption_cell = null;
+    }
+  }
+
+  /* ---------------- responses ---------------- */
+
+  track.addEventListener("click", function (e) {
+    var card = e.target.closest(".ocard");
+    if (card) {
+      markInteraction();
+      var slide = card.closest(".slide");
+      var i = parseInt(slide.getAttribute("data-choice"), 10);
+      slide.querySelectorAll(".ocard").forEach(function (c) {
+        c.classList.toggle("picked", c === card);
+      });
+      picks[i] = card.getAttribute("data-kind");
+      state.t_last_choice = Date.now() - t0;
+      score(); render(); report();
+      return;
+    }
+  });
+
+  /* ---------------- pilot panel ---------------- */
+
+  if (qparam("pilot") === "1") {
+    document.getElementById("pilot").innerHTML =
+      '<div class="pilot"><h4>PILOT PANEL — not shown to respondents (pilot=1)</h4>' +
+      (ownSource === "random"
+        ? '<p class="bad">CIRCUMSTANCES RANDOMISED — ' + bad.join(", ") +
+          '. own_source = "random"; this record is not real data.</p>'
+        : '<p>Circumstances piped from the URL.</p>') +
+      '<p><strong>Actual:</strong> <code>' + state.actual_map + '</code><br>' +
+      '<strong>Stipulated:</strong> <code>' + state.stipulated_map + '</code><br>' +
+      '<strong>Opposed (conflict items):</strong> <code>' + opposed.join(", ") + '</code><br>' +
+      '<strong>Matched (congruent items):</strong> <code>' + matched.join(", ") + '</code></p>' +
+      '<p><strong>Adoption key</strong> — on conflict items the adopted option is:<br>' +
+      opposed.map(function (d) {
+        return d + " &rarr; " + DIMS[d].implies[stipulated[d]] +
+               " (" + DIMS[d].item[DIMS[d].implies[stipulated[d]]].name + ")";
+      }).join("<br>") + '</p></div>';
+  }
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(function () { accrue(); reportHeight(); }, 1000);
+
+  score();
+  render();
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

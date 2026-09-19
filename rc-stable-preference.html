@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hotel Choices</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.5; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  .blockinst {
+    font-size: 13.5px; color: #737b82; margin: 0 0 18px;
+    padding-bottom: 12px; border-bottom: 1px solid #eef1f4;
+  }
+  .counter { float: right; font-size: 12.5px; color: #9aa1a8; }
+  .city { font-size: 15px; margin: 0 0 12px; }
+
+  .tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table.cmp { border-collapse: collapse; width: 100%; min-width: 320px; }
+  table.cmp th, table.cmp td {
+    border-bottom: 1px solid #eef1f4; padding: 9px 10px; text-align: left;
+    font-size: 14px; vertical-align: top;
+  }
+  table.cmp th.attr, table.cmp td.attr {
+    color: #737b82; font-weight: 400; white-space: nowrap; border-right: 1px solid #eef1f4;
+  }
+  table.cmp thead th { font-size: 14.5px; font-weight: 600; color: #1f2328; border-bottom: 1px solid #dfe3e7; }
+  table.cmp td.val { font-variant-numeric: tabular-nums; }
+  table.cmp .sel { background: #f2f7fc; }
+
+  .qtext { font-size: 15px; font-weight: 500; margin: 20px 0 0; }
+  .picks { display: flex; gap: 10px; margin: 12px 0 0; flex-wrap: wrap; }
+  .pickbtn {
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    padding: 9px 16px; border-radius: 5px; flex: 1 1 0; min-width: 120px;
+    border: 1px solid #c8ced4; background: #fff; color: #1f2328; cursor: pointer; text-align: center;
+  }
+  .pickbtn:hover { border-color: #2f6fb0; color: #2f6fb0; background: #f2f7fc; }
+  .pickbtn.chosen { border-color: #2f6fb0; background: #2f6fb0; color: #fff; }
+
+  .contwrap { margin-top: 22px; padding-top: 16px; border-top: 1px solid #e6e8eb; }
+  .contbtn {
+    font-family: inherit; font-size: 14.5px; font-weight: 500;
+    padding: 10px 26px; border-radius: 5px;
+    border: 1px solid #2f6fb0; background: #2f6fb0; color: #fff; cursor: pointer;
+  }
+  .contbtn[disabled] { border-color: #dfe3e7; background: #f4f6f8; color: #a8afb6; cursor: default; }
+
+  .done { font-size: 15px; color: #737b82; padding: 22px 0; }
+
+  .pilot {
+    margin-top: 26px; padding: 12px 14px; border: 1px solid #e0c58a;
+    background: #fdf7e8; border-radius: 6px; font-size: 12.5px; color: #6a5320;
+  }
+  .pilot h4 { margin: 0 0 7px; font-size: 12.5px; }
+  .pilot code { font-size: 11.5px; }
+  .pilot .bad { color: #9c2c2c; font-weight: 600; }
+
+  @media (max-width: 560px) {
+    table.cmp th, table.cmp td { padding: 8px 7px; font-size: 13px; }
+    .pickbtn { font-size: 13.5px; padding: 9px 10px; min-width: 96px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="blockinst" id="blockinst"></div>
+  <div id="screen"></div>
+  <div id="pilot"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     STABLE PREFERENCE — the same pair, asked twice
+
+     The coherence requirement: if the inference reads a set of choices as
+     revealing ONE preference ordering — conjoint, choice experiments, any
+     design that estimates a single utility function from repeated trials —
+     then the same two options must produce the same choice twice.
+
+     WHY A REPEATED PAIR RATHER THAN A TRANSITIVITY TRIAD. No decision rule
+     generates a switch between two presentations of the same pair.
+     Lexicographic, tallying, weighted-compensatory — every one of them gives
+     the same answer both times, so the probe assumes nothing whatever about
+     how people decide. A triad does not have that property, and the trap is
+     specific: it is easy to build a triad in which majority-of-attributes
+     tallying produces a Condorcet cycle. Tallying is a real, non-careless
+     strategy, so such a triad flags attending respondents. Anyone building a
+     triad has to verify that every lexicographic ordering AND the majority
+     ordering are acyclic first — which in practice forces one option to be a
+     clear winner anyway.
+
+     THE TWO PRESENTATIONS MUST BE EQUIVALENT BUT NOT IDENTICAL, or the second
+     is answered from memory of the first and consistency is manufactured.
+     What changes: the city, both hotel names, and the left/right position.
+     What does not: the attribute rows and every value in them.
+
+     POSITION IS ALWAYS SWAPPED, never randomised independently. Without the
+     swap, a respondent answering by position — always the left one — is
+     perfectly "consistent" and passes. With it, they switch every time. The
+     cost is that a mild genuine position bias in an otherwise attending
+     respondent inflates the switch rate; that is the right trade, since
+     position-driven responding is outside any intended sample.
+
+     THE CITY LABEL IS THE ONE PLACE THIS DESIGN ASSUMES SOMETHING. Changing
+     it is what keeps the repeat from being obvious, but it does mean "1.8
+     miles from downtown" is being read in two different places. The cities
+     are deliberately all mid-size and similar in character to keep that
+     small. If you would rather not assume it, hold the city constant and
+     re-skin on hotel names alone — at the cost of a much more visible repeat.
+
+     PAIRS ARE DELIBERATELY NOT MARGINAL. Stochastic choice is concentrated
+     near indifference, so a pair the respondent is nearly indifferent about
+     will switch by noise alone. Every pair here has one attribute moving by
+     a large amount against the other two.
+
+     WHAT IS EMITTED, AND THE CONFOUND THAT CANNOT BE DESIGNED AWAY.
+     Consistency can reflect a stable preference or a good memory. Re-skinning
+     and a minimum gap of three screens reduce the second, and
+     `rt_second_minus_first_ms` is emitted as a weak diagnostic — much faster
+     second presentations are consistent with recognition rather than
+     re-deciding. It is suggestive only, since practice speeds people up too.
+
+     ONE SCREEN PER CHOICE, NO BACK BUTTON: sets cannot be compared or
+     re-scanned. No feedback of any kind.
+
+     URL PARAMETERS
+       seed   per-respondent seed; drives order, sides, names and cities
+       pos    assigned position label, carried through as probe_position
+       pilot  1 to show the realised order and the dominance check
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "PREF_STABILITY";
+
+  var BLOCK_INSTRUCTIONS =
+    "Imagine you are booking hotels for a series of short work trips. For each " +
+    "trip, two hotels are available. Assume they are the same in every respect " +
+    "apart from what is listed, and pick the one you would actually book.";
+
+  var ROWS = [
+    { label: "Guest rating",           dir: "high" },
+    { label: "Distance from downtown", dir: "low"  },
+    { label: "Price per night",        dir: "low"  }
+  ];
+
+  /* Three repeated pairs and two singles. Each is a genuine trade-off with
+     one attribute moving a long way against the other two. */
+  var SETS = {
+    P1: { repeat: true,  x: ["4.7 stars", "1.8 miles", "$145"], y: ["4.1 stars", "0.3 miles", "$195"] },
+    P2: { repeat: true,  x: ["3.9 stars", "0.5 miles", "$120"], y: ["4.6 stars", "1.4 miles", "$170"] },
+    P3: { repeat: true,  x: ["4.0 stars", "0.8 miles", "$155"], y: ["4.8 stars", "2.0 miles", "$130"] },
+    F1: { repeat: false, x: ["4.3 stars", "1.1 miles", "$140"], y: ["3.8 stars", "0.4 miles", "$125"] },
+    F2: { repeat: false, x: ["4.4 stars", "0.7 miles", "$185"], y: ["4.0 stars", "1.9 miles", "$125"] }
+  };
+
+  var CITIES = ["Denver", "Austin", "Charlotte", "Portland",
+                "Nashville", "Tucson", "Savannah", "Raleigh"];
+  var HOTELS = ["The Marbury", "Coastline Inn", "Westbrook Hotel", "The Halden",
+                "Riverbend Inn", "Ashford Hotel", "The Penhurst", "Lakeview Inn",
+                "Corliss Hotel", "The Eastgate", "Brightwater Inn", "Sundale Hotel",
+                "The Ferrin", "Northcott Inn", "Wexley Hotel", "The Amberton"];
+
+  var MIN_GAP = 3;
+
+  /* ---------------- URL + RNG ---------------- */
+
+  function param(name) {
+    var m = new RegExp("[?&]" + name + "=([^&]*)").exec(window.location.search);
+    return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : null;
+  }
+  var P = { seed: param("seed"), pos: param("pos"), pilot: param("pilot") === "1" };
+
+  function hashSeed(str) {
+    var h = 2166136261 >>> 0;
+    if (!str) str = String(Date.now()) + ":" + Math.random();
+    for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return h >>> 0;
+  }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  var seedUsed = P.seed || ("auto-" + Date.now() + "-" + Math.floor(Math.random() * 1e6));
+  var rng = mulberry32(hashSeed(seedUsed + "|" + PROBE_ID));
+  function shuffle(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(rng() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  /* ---------------- dominance check ----------------
+     Every set must be a genuine trade-off. A repeated pair that is actually a
+     dominance item measures something else entirely, and a value edit is all
+     it takes to create one. Re-derived from the values on every load. */
+
+  function numOf(v) {
+    var m = String(v).replace(/,/g, "").match(/-?\d+(\.\d+)?/);
+    return m ? parseFloat(m[0]) : null;
+  }
+  function relation(s, first, second) {
+    var better = 0, worse = 0, tie = 0;
+    for (var r = 0; r < ROWS.length; r++) {
+      var a = numOf(s[first][r]), b = numOf(s[second][r]);
+      if (a === null || b === null || a === b) { tie++; continue; }
+      var aBetter = ROWS[r].dir === "low" ? a < b : a > b;
+      if (aBetter) better++; else worse++;
+    }
+    if (better === 0 && worse === 0) return "identical";
+    if (worse === 0 && tie === 0) return "strict";
+    if (worse === 0) return "weak";
+    return null;
+  }
+  var checkPassed = 1, checkNotes = [];
+  Object.keys(SETS).forEach(function (id) {
+    var xy = relation(SETS[id], "x", "y"), yx = relation(SETS[id], "y", "x");
+    var bad = ["strict", "weak", "identical"];
+    if (bad.indexOf(xy) > -1 || bad.indexOf(yx) > -1) {
+      checkPassed = 0;
+      checkNotes.push("FAIL " + id + ": x→y " + xy + ", y→x " + yx);
+    } else {
+      checkNotes.push(id + ": genuine trade-off");
+    }
+  });
+  if (!checkPassed && window.console) {
+    console.warn("[" + PROBE_ID + "] DOMINANCE CHECK FAILED\n" + checkNotes.join("\n"));
+  }
+
+  /* ---------------- sequence ----------------
+     Rejection sampling over whole permutations, so the ordering is uniform
+     among those meeting the gap constraint rather than merely legal. */
+
+  var tokens = [];
+  Object.keys(SETS).forEach(function (id) {
+    tokens.push(id);
+    if (SETS[id].repeat) tokens.push(id);
+  });
+
+  function gapsOk(seq) {
+    var seen = {};
+    for (var i = 0; i < seq.length; i++) {
+      var id = seq[i];
+      if (seen[id] != null && (i - seen[id]) < MIN_GAP) return false;
+      seen[id] = i;
+    }
+    return true;
+  }
+  var sequence = null, orderFailed = 0;
+  for (var attempt = 0; attempt < 4000; attempt++) {
+    var s = shuffle(tokens.slice());
+    if (gapsOk(s)) { sequence = s; break; }
+  }
+  if (!sequence) { sequence = tokens.slice(); orderFailed = 1; }
+
+  /* Per-screen skin. Position is FORCED to swap between the two presentations
+     of a pair — see the header note on position responders. */
+  var cityPool = shuffle(CITIES.slice());
+  var hotelPool = shuffle(HOTELS.slice());
+  var seenCount = {}, screens = [];
+  sequence.forEach(function (id, i) {
+    var n = (seenCount[id] || 0) + 1;
+    seenCount[id] = n;
+    var xLeft;
+    if (n === 1) { xLeft = rng() < 0.5; }
+    else {
+      var prev = null;
+      for (var k = 0; k < screens.length; k++) if (screens[k].id === id) prev = screens[k];
+      xLeft = !prev.xLeft;
+    }
+    screens.push({
+      id: id, instance: n, index: i,
+      city: cityPool[i],
+      names: [hotelPool[i * 2], hotelPool[i * 2 + 1]],
+      xLeft: xLeft
+    });
+  });
+
+  /* ---------------- state ---------------- */
+
+  var t0 = Date.now();
+  var state = {
+    probe: PROBE_ID,
+    seed: seedUsed,
+    probe_position: P.pos,
+    n_screens: screens.length,
+    n_pairs: 3,
+    min_gap: MIN_GAP,
+    sequence: sequence.join(","),
+    order_failed: orderFailed,
+    check_passed: checkPassed,
+    check_notes: checkNotes.join(" | "),
+    n_switches: null,
+    switch_rate: null,
+    prop_chose_left: null,
+    rt_second_minus_first_ms: null,
+    n_screens_completed: 0,
+    block_complete: 0,
+    t_block_ms: null,
+    screens: []
+  };
+
+  /* ---------------- render ---------------- */
+
+  var screenEl = document.getElementById("screen");
+  document.getElementById("blockinst").innerHTML =
+    '<span class="counter" id="counter"></span>' + BLOCK_INSTRUCTIONS;
+
+  var idx = 0, selected = null, changes = 0, tStart = 0, tFirst = null;
+
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function renderScreen() {
+    var sc = screens[idx], set = SETS[sc.id];
+    selected = null; changes = 0; tFirst = null; tStart = Date.now();
+    document.getElementById("counter").textContent = (idx + 1) + " of " + screens.length;
+
+    /* keys in display order: "x"/"y" */
+    var order = sc.xLeft ? ["x", "y"] : ["y", "x"];
+
+    var h = '<p class="city">Trip to ' + esc(sc.city) + '</p><div class="tablewrap">' +
+            '<table class="cmp"><thead><tr><th class="attr"></th>';
+    order.forEach(function (k, i) {
+      h += '<th data-col="' + k + '">' + esc(sc.names[i]) + '</th>';
+    });
+    h += '</tr></thead><tbody>';
+    ROWS.forEach(function (row, ri) {
+      h += '<tr><td class="attr">' + esc(row.label) + '</td>';
+      order.forEach(function (k) {
+        h += '<td class="val" data-col="' + k + '">' + esc(set[k][ri]) + '</td>';
+      });
+      h += '</tr>';
+    });
+    h += '</tbody></table></div><p class="qtext">Which would you book?</p><div class="picks">';
+    order.forEach(function (k, i) {
+      h += '<button type="button" class="pickbtn" data-k="' + k + '">' + esc(sc.names[i]) + '</button>';
+    });
+    h += '</div><div class="contwrap"><button type="button" class="contbtn" id="cont" disabled>Continue</button></div>';
+    screenEl.innerHTML = h;
+
+    Array.prototype.forEach.call(screenEl.querySelectorAll(".pickbtn"), function (btn) {
+      btn.addEventListener("click", function () {
+        var k = btn.getAttribute("data-k");
+        if (selected !== null && selected !== k) changes++;
+        if (tFirst === null) tFirst = Date.now() - tStart;
+        selected = k;
+        Array.prototype.forEach.call(screenEl.querySelectorAll(".pickbtn"), function (b) {
+          b.classList.toggle("chosen", b.getAttribute("data-k") === k);
+        });
+        Array.prototype.forEach.call(screenEl.querySelectorAll("[data-col]"), function (c) {
+          c.classList.toggle("sel", c.getAttribute("data-col") === k);
+        });
+        document.getElementById("cont").disabled = false;
+        reportHeight();
+      });
+    });
+    document.getElementById("cont").addEventListener("click", function () {
+      if (selected === null) return;
+      record();
+      idx++;
+      if (idx < screens.length) { renderScreen(); } else { finish(); }
+      window.scrollTo(0, 0);
+      reportHeight();
+    });
+    reportHeight();
+  }
+
+  function record() {
+    var sc = screens[idx];
+    var order = sc.xLeft ? ["x", "y"] : ["y", "x"];
+    state.screens.push({
+      id: sc.id,
+      instance: sc.instance,
+      repeated: SETS[sc.id].repeat ? 1 : 0,
+      pos_block: idx + 1,
+      city: sc.city,
+      choice_key: selected,                       /* "x" or "y" — never the name */
+      choice_name: sc.names[order.indexOf(selected)],
+      choice_side: order.indexOf(selected) + 1,   /* 1 = left */
+      x_on_left: sc.xLeft ? 1 : 0,
+      rt_first_ms: tFirst,
+      rt_ms: Date.now() - tStart,
+      changes: changes
+    });
+    state.n_screens_completed = state.screens.length;
+    report();
+  }
+
+  function finish() {
+    var rows = state.screens, left = 0, firstRt = [], secondRt = [], switches = 0;
+    rows.forEach(function (r) { if (r.choice_side === 1) left++; });
+
+    ["P1", "P2", "P3"].forEach(function (id) {
+      var a = null, b = null;
+      rows.forEach(function (r) {
+        if (r.id !== id) return;
+        if (r.instance === 1) a = r; else b = r;
+      });
+      if (!a || !b) return;
+      var sw = (a.choice_key === b.choice_key) ? 0 : 1;
+      switches += sw;
+      firstRt.push(a.rt_ms); secondRt.push(b.rt_ms);
+      state[id + "_choice_1"]  = a.choice_key;
+      state[id + "_choice_2"]  = b.choice_key;
+      state[id + "_switched"]  = sw;
+      state[id + "_gap"]       = b.pos_block - a.pos_block;
+      state[id + "_rt_1_ms"]   = a.rt_ms;
+      state[id + "_rt_2_ms"]   = b.rt_ms;
+      state[id + "_pos_1"]     = a.pos_block;
+      state[id + "_pos_2"]     = b.pos_block;
+    });
+
+    function mean(a) { return a.length ? a.reduce(function (s, v) { return s + v; }, 0) / a.length : null; }
+    state.n_switches = switches;
+    state.switch_rate = +(switches / 3).toFixed(3);
+    state.prop_chose_left = +(left / rows.length).toFixed(3);
+    if (firstRt.length && secondRt.length) {
+      state.rt_second_minus_first_ms = Math.round(mean(secondRt) - mean(firstRt));
+    }
+    state.block_complete = 1;
+    state.t_block_ms = Date.now() - t0;
+
+    document.getElementById("counter").textContent = "";
+    screenEl.innerHTML = '<p class="done">Thank you — that\'s the end of this section.</p>';
+    report();
+    if (P.pilot) renderPilot();
+    reportHeight();
+  }
+
+  function renderPilot() {
+    var h = '<div class="pilot"><h4>PILOT PANEL — not shown to respondents (pilot=1)</h4>' +
+            '<p><strong>Seed:</strong> <code>' + esc(seedUsed) + '</code>' +
+            (orderFailed ? ' &nbsp; <span class="bad">GAP CONSTRAINT NOT MET</span>' : '') + '</p>' +
+            '<p><strong>Realised order:</strong><br>' +
+            screens.map(function (sc, i) {
+              return (i + 1) + ". " + sc.id + " (#" + sc.instance + ", " + sc.city +
+                     ", x " + (sc.xLeft ? "left" : "right") + ")";
+            }).join("<br>") + '</p><p><strong>Pairs:</strong><br>';
+    ["P1", "P2", "P3"].forEach(function (id) {
+      h += id + ": " + state[id + "_choice_1"] + " → " + state[id + "_choice_2"] +
+           " gap=" + state[id + "_gap"] +
+           (state[id + "_switched"] ? ' <span class="bad">SWITCHED</span>' : ' consistent') + '<br>';
+    });
+    h += '</p><p>switches = ' + state.n_switches +
+         ' &nbsp; prop left = ' + state.prop_chose_left +
+         ' &nbsp; rt(2nd)−rt(1st) = ' + state.rt_second_minus_first_ms + ' ms</p>' +
+         '<p><strong>Dominance check:</strong> ' +
+         (checkPassed ? 'passed' : '<span class="bad">FAILED</span>') + '<br>' +
+         esc(checkNotes.join(" • ")) + '</p></div>';
+    document.getElementById("pilot").innerHTML = h;
+  }
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(reportHeight, 500);
+
+  renderScreen();
+  report();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apartment Selection</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.45; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .scenario { font-size: 15px; margin: 0 0 18px; }
+
+  .searchbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+    border: 1px solid #d8dce1; border-radius: 6px; padding: 10px 12px;
+    margin-bottom: 14px; background: #f7f8fa; font-size: 13.5px; color: #4a5158;
+  }
+  .searchbar .field { display: flex; align-items: baseline; gap: 6px; }
+  .searchbar .lab { color: #868e96; font-size: 12px; }
+  .searchbar .val { color: #1f2328; font-weight: 500; }
+
+  /* ---- units ----
+     Each unit is a self-contained column: headline rent, a select control, and
+     its own stack of expandable sections. Cards are top-aligned and free to
+     differ in height, since sections open independently. */
+  .panel { border: 1px solid #dfe3e7; border-radius: 7px; background: #fff; }
+  .optionspanel { padding: 14px 15px; }
+  .options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-items: start; }
+
+  .card {
+    border: 1px solid #e6ebf0; border-radius: 6px;
+    padding: 12px 13px; background: #fdfefe;
+  }
+  .card.chosen { border-color: #1b7a4a; box-shadow: 0 0 0 1px #1b7a4a inset; background: #fff; }
+  .name { font-size: 13px; font-weight: 600; color: #737b82; margin: 0 0 6px;
+          text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* Headline block: price + label on one line, then the specs strip with
+     availability pushed to the trailing edge. Mirrors the layout used by the
+     large rental portals, so the stimulus reads as a real listing. */
+  .priceline { display: flex; align-items: center; flex-wrap: wrap; gap: 3px 7px; }
+  .rate { font-size: 21px; font-weight: 600; letter-spacing: -0.4px; }
+  .ratelab {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; color: #4a5158; white-space: nowrap;
+  }
+  .ratelab .tick { width: 13px; height: 13px; flex-shrink: 0; display: block; }
+
+  .meta {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 6px;
+    margin-top: 5px; font-size: 12.5px; color: #4a5158;
+  }
+  .meta .sep { color: #c3c9cf; }
+  .meta .avail { margin-left: auto; color: #737b82; white-space: nowrap; }
+  /* The action control is green so that it does not read as one more blue
+     disclosure affordance. Blue is reserved throughout for things that reveal
+     information (section headers, chevrons, the verified-price mark); green
+     appears only on the control that commits a choice, and on the border of
+     the card that choice lands on. */
+  .selectbtn {
+    font-family: inherit; font-size: 13.5px; font-weight: 600;
+    margin-top: 11px; padding: 6px 14px; border-radius: 5px; width: 100%;
+    border: 1px solid #1b7a4a; background: #1b7a4a; color: #fff; cursor: pointer;
+  }
+  .selectbtn:hover { background: #15613a; border-color: #15613a; }
+  .selectbtn:focus-visible { outline: 2px solid #15613a; outline-offset: 2px; }
+
+  /* ---- per-unit expandable sections ---- */
+  .sections { margin-top: 11px; border-top: 1px solid #edf1f4; }
+  .sec { border-bottom: 1px solid #edf1f4; }
+  .sec:last-child { border-bottom: 0; }
+  .sechead {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    padding: 9px 0; border: 0; background: none; font-family: inherit;
+    font-size: 13px; font-weight: 500; color: #2f6fb0; text-align: left; cursor: pointer;
+  }
+  .sechead:hover { color: #21527f; }
+  .sechead .chev {
+    width: 7px; height: 7px; flex-shrink: 0; margin-left: 1px;
+    border-right: 1.8px solid #8fa7bd; border-bottom: 1.8px solid #8fa7bd;
+    transform: rotate(-45deg); transition: transform 0.12s ease;
+  }
+  .sec.open .sechead .chev { transform: rotate(45deg); border-color: #2f6fb0; }
+  .sec.open .sechead { color: #21527f; font-weight: 600; }
+
+  .secbody { display: none; padding: 2px 0 11px; }
+  .sec.open .secbody { display: block; }
+  .secbody p { margin: 0 0 7px; font-size: 13px; }
+  .secbody p:last-child { margin-bottom: 0; }
+  .secbody dl { margin: 0; font-size: 13px; }
+  .secbody dt { color: #737b82; font-size: 12px; }
+  .secbody dd { margin: 0 0 6px; }
+
+  /* Feature bullets. `.excl` carries what is NOT included — greyed rather than
+     omitted, so the absence is legible to a participant who is comparing. */
+  .secbody ul { margin: 0; padding-left: 15px; font-size: 12.5px; }
+  .secbody li { margin-bottom: 3px; }
+  .secbody li:last-child { margin-bottom: 0; }
+  .secbody li.excl { color: #9aa1a8; list-style-type: none; margin-left: -15px; }
+
+  /* Fee rows: label left, amount right, ruled total. */
+  .subhead {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.05em; color: #868e96; margin: 11px 0 4px;
+  }
+  .subhead:first-child { margin-top: 0; }
+  .frow {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 10px; font-size: 12.5px; padding: 2px 0;
+  }
+  .frow .amt { white-space: nowrap; }
+  .frow.tot {
+    margin-top: 4px; padding-top: 5px;
+    border-top: 1px solid #e6ebf0; font-weight: 600;
+  }
+  .fnote { font-size: 11.5px; color: #868e96; margin: 6px 0 0 !important; }
+
+  @media (max-width: 560px) {
+    .options { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="scenario">
+    Imagine you are renting a one-bedroom apartment for the coming year. You have
+    already settled on this building, and three units are available.
+    <br><br>
+    You work from home and expect to use the balcony every day &mdash; having one
+    is the main reason you chose this building. Select the unit you would prefer.
+  </p>
+
+  <div class="searchbar">
+    <div class="field"><span class="lab">Property</span><span class="val">Maple Court, Building 2</span></div>
+    <div class="field"><span class="lab">Type</span><span class="val">One bedroom, unfurnished</span></div>
+    <div class="field"><span class="lab">Available</span><span class="val">Now</span></div>
+  </div>
+
+  <div class="panel optionspanel">
+    <div class="options" id="options"></div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     ACQUISITION PROBE — per-option disclosure
+
+     STRUCTURAL NOTE, read this before using the data.
+
+     This version presents four labelled sections beneath each unit, opened
+     independently. That is a flat space of twelve controls whose labels are all
+     legible at a glance. By the test set out in link-acquisition.md §4, that is
+     the REVEAL access problem — information behind an obvious labelled control —
+     and not SEARCH, which requires the location of the answer to be uncertain
+     and the space too large to inspect exhaustively.
+
+     LOCATION UNCERTAINTY IS NOW ZERO. An earlier version hid the outlook under a
+     separate "Photos & Floor Plan" section, so "Unit Features" functioned as a
+     designed near-miss and a wrong first guess cost a click. That section has
+     been removed and the outlook now sits as a plain "Courtyard View" /
+     "Parking Lot View" / "Street View" bullet under "Unit Features", which is
+     also the obvious place to look for it. Nothing about
+     where to look is uncertain any more; only the decision to look at all is.
+     Treat this as a pure reveal instrument.
+
+     This makes it structurally parallel to acq-reveal: twelve openable things,
+     criterion met when one attribute is acquired for all three options,
+     acquisition_cost on the same 0-12 scale, so the two are directly poolable.
+     Variable names below deliberately mirror acq-reveal for that reason. If the
+     battery still needs a search arm, it needs a third design rather than this
+     one.
+
+     DEFAULT LAYER. The collapsed card shows base rent, beds, baths, square
+     footage and availability. Square footage is held equal for the two
+     higher-priced units and is 30 sq ft smaller on the cheapest one, so size
+     tracks price weakly and cannot substitute for the outlook. Availability is
+     identical across units by design.
+
+     Two expandable sections now carry money that varies by unit, so neither is
+     a pure distractor. Pricing Details charges the street-view unit for shared
+     laundry, and Move-in Specials gives it two weeks free rather than a month.
+     Net effect on effective monthly cost, concession subtracted:
+
+         courtyard  $2,077 - $157 = $1,920
+         parking    $2,027 - $153 = $1,874
+         street     $1,993 -  $74 = $1,919
+
+     The street-view unit is the cheapest on the collapsed card and is NOT the
+     cheapest once everything is acquired — it lands level with the courtyard
+     unit, and parking undercuts both. So the default-layer shortcut is wrong on
+     price as well as on outlook, which is a stronger manipulation, but it also
+     means a participant who opens Pricing Details or Move-in Specials without
+     opening Unit Features has a price-based reason to leave the street-view
+     unit. Choice alone therefore no longer identifies outlook acquisition;
+     condition it on n_target_units rather than reading the choice split
+     directly.
+
+     CRITERION (link-acquisition.md §5): the decision-relevant fact is acquired
+     for ALL options. Here that is the "Photos and floor plan" section opened for
+     all three units — not merely opened once. n_target_units (0-3) carries the
+     graded version and should be preferred over the binary in analysis.
+
+     The default layer supports a defensible-looking shortcut: rents are visible
+     and run against outlook, so the cheapest unit is the one facing the road.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "ACQ_SEARCH";
+
+  /* Decorative verification mark beside the headline price, matching the
+     convention used by the rental portals. Inline SVG rather than a glyph, so
+     it renders identically regardless of the participant's installed fonts. */
+  var TICK =
+    '<svg class="tick" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+    '<circle cx="8" cy="8" r="8" fill="#2f6fb0"/>' +
+    '<path d="M4.5 8.3 L6.9 10.7 L11.6 5.8" fill="none" stroke="#fff" ' +
+    'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var LABELS = ["Unit A", "Unit B", "Unit C"];
+  var TARGET_SECTION = "features";
+
+  /* Section order. SECTIONS is listed in the order a real listing would use,
+     and that order is presented as-is when RANDOMISE_SECTIONS is false.
+
+     TRADE-OFF, worth re-reading before a pilot. A fixed order buys ecological
+     validity and removes between-participant variance from ordering, but it
+     confounds position with content: "Unit Features" is the target section, so
+     with it pinned first, opening the target is also the cheapest possible
+     click. Reaching criterion costs a floor of three clicks (first section on
+     each card), which compresses the range of acquisition_cost and risks a
+     ceiling on n_target_units.
+
+     The all-options criterion is what keeps signal in the measure: a
+     participant must open Unit Features on all THREE units, so the graded
+     n_target_units still separates "glanced at one" from "compared properly".
+     Prefer it over the binary `revealed` even more strongly under a fixed
+     order.
+
+     Flip RANDOMISE_SECTIONS to true for a counterbalanced arm or a robustness
+     check; the drawn order is written to state.section_order either way, and
+     state.section_order_fixed records which regime produced it. */
+
+  var RANDOMISE_SECTIONS = false;
+
+  var SECTIONS = [
+    { key: "features", label: "Unit Features" },
+    { key: "pricing",  label: "Pricing Details" },
+    { key: "optional", label: "Additional Optional Fees" },
+    { key: "specials", label: "Move-in Specials" }
+  ];
+
+  /* ---------------- fee schedule ----------------
+     The schedules below are building-wide. Anything that varies by unit lives
+     on the profile instead: `extraMonthly` adds required monthly lines (the
+     street-view unit pays for shared laundry, since it has no machines), and
+     `freeWeeks` sets the size of the move-in concession.
+
+     Both of those move money, so neither Pricing Details nor Move-in Specials
+     is a pure distractor any more. See the DEFAULT LAYER note at the top for
+     what that does to the price ordering. */
+
+  var ONE_TIME = [
+    { label: "Application fee (per adult)", amt: 50 },
+    { label: "Administrative fee",          amt: 200 },
+    { label: "Security deposit (refundable)", amt: 500 }
+  ];
+
+  var MONTHLY_REQUIRED = [
+    { label: "Water, sewer &amp; trash", amt: 62 },
+    { label: "Electricity (est.)",       amt: 75 },
+    { label: "Internet (est.)",          amt: 60 }
+  ];
+
+  var OPTIONAL_FEES = [
+    { head: "Pets", rows: [
+      { label: "Pet fee, one time (per pet)", val: "$300" },
+      { label: "Pet rent (per pet)",          val: "$35/mo" }
+    ]},
+    { head: "Parking", rows: [
+      { label: "Surface space",   val: "Included" },
+      { label: "Covered carport", val: "$45/mo" },
+      { label: "Gated garage, security cameras", val: "$65/mo" }
+    ]},
+    { head: "Other add-ons", rows: [
+      { label: "Storage locker (4 &times; 6 ft)", val: "$30/mo" },
+      { label: "Renters insurance via property",  val: "$14/mo" },
+      { label: "Trash valet (opt-in)",            val: "$12/mo" }
+    ]}
+  ];
+
+  /* ---------------- units ----------------
+     Rent is the visible default layer and runs against outlook: the cheapest
+     unit is the one overlooking the road. The spread is small (about 5%), so
+     the shortcut is tempting rather than overwhelming.
+
+     `desc` is the designed near-miss. It describes the balcony at length and
+     never says what it faces. `kitchen` is a deliberate rival differentiator —
+     it gives a participant who stops early something to prefer on, so stopping
+     feels like a decision rather than a shrug. */
+
+  var BEDS = "1 Bed", BATHS = "1 Bath", AVAIL = "Available Now";
+
+  var PROFILES = [
+    { id: "courtyard", rent: 1880, sqft: 720,
+      outlook: "Courtyard View",
+      freeWeeks: 4,
+      extraMonthly: [],
+      features: [
+        "Balcony",
+        "Washer/Dryer in Unit",
+        "Dishwasher",
+        "Air Conditioning",
+        "Third Floor",
+        "Elevator Access"
+      ],
+      excluded: [] },
+
+    { id: "parking", rent: 1830, sqft: 720,
+      outlook: "Parking Lot View",
+      freeWeeks: 4,
+      extraMonthly: [],
+      features: [
+        "Balcony",
+        "Washer/Dryer in Unit",
+        "Dishwasher",
+        "Air Conditioning",
+        "Second Floor",
+        "Elevator Access"
+      ],
+      excluded: [] },
+
+    { id: "road", rent: 1780, sqft: 690,
+      outlook: "Street View",
+      freeWeeks: 2,
+      extraMonthly: [
+        { label: "Shared laundry (about 1 load/week)", amt: 16 }
+      ],
+      features: [
+        "Balcony",
+        "Dishwasher",
+        "Air Conditioning",
+        "Shared Laundry Room",
+        "First Floor",
+        "Elevator Access"
+      ],
+      excluded: ["No Washer/Dryer in Unit"] }
+  ];
+
+  /* ---------------- state ---------------- */
+
+  var t0 = Date.now();
+  var openedSet = [];      // "unitId:sectionKey", in order of first opening
+  var targetUnits = [];    // unit ids whose target section has been opened
+  var targetSince = null;
+
+  var state = {
+    probe: PROBE_ID,
+    mechanic: "reveal_per_option",
+    assignment: null,
+    section_order: null,
+    section_order_fixed: null,
+    revealed: 0,                  // target section opened for ALL three units
+    any_section_opened: 0,
+    n_target_units: 0,            // 0-3 — the graded criterion, prefer this
+    target_units: null,
+    n_sections_opened: 0,         // 0-12
+    sections_opened: null,
+    n_sections_all_units: 0,      // sections opened for all three units
+    n_units_touched: 0,           // 0-3
+    acquisition_cost: 0,          // = n_sections_opened, 0-12
+    time_on_target: 0,
+    t_first_interaction: null,
+    t_first_section: null,
+    t_reveal: null,               // ms to meeting the criterion
+    dwell_after_reveal: null,
+    n_sections_at_choice: 0,
+    n_target_open_at_choice: 0,   // 0-3
+    choice_profile: null,
+    choice_label: null,
+    choice_changes: 0,
+    t_choice: null
+  };
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) state.t_first_interaction = Date.now() - t0;
+  }
+
+  function shuffle(a) {
+    var arr = a.slice();
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  function money(n) {
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+  var assigned = shuffle(PROFILES);
+  state.assignment = assigned.map(function (p) { return p.id; }).join(",");
+
+  // Whichever regime is in force, one order is drawn once and applied
+  // identically to all three units, so the columns stay comparable.
+  var secOrder = RANDOMISE_SECTIONS ? shuffle(SECTIONS) : SECTIONS.slice();
+  state.section_order = secOrder.map(function (s) { return s.key; }).join(",");
+  state.section_order_fixed = RANDOMISE_SECTIONS ? 0 : 1;
+
+  /* ---------------- section content ---------------- */
+
+  function frow(label, value, cls) {
+    return '<div class="frow' + (cls ? ' ' + cls : '') + '">' +
+             '<span>' + label + '</span>' +
+             '<span class="amt">' + value + '</span>' +
+           '</div>';
+  }
+
+  function sum(rows) {
+    return rows.reduce(function (t, r) { return t + r.amt; }, 0);
+  }
+
+  function content(p, key) {
+
+    /* Unit Features carries the decision-relevant fact. Bullets are bare
+       amenity labels, as on a real listing, so no bullet stands out by length
+       or phrasing and the view line has to be read rather than spotted.
+
+       `outlook` is spliced in at index 1 — directly under "Balcony", where it
+       belongs — rather than being written into the `features` array. Keeping it
+       a named field means it can be moved back out into a section of its own in
+       one edit if a later version wants location uncertainty restored, and it
+       keeps it off the very first line, which was the most glanceable position
+       on the card. */
+    if (key === "features") {
+      var list = p.features.slice();
+      list.splice(1, 0, p.outlook);
+      var items = list.map(function (f) { return '<li>' + f + '</li>'; }).join("");
+      var gone  = p.excluded.map(function (f) { return '<li class="excl">' + f + '</li>'; }).join("");
+      return '<ul>' + items + gone + '</ul>';
+    }
+
+    if (key === "pricing") {
+      var once = ONE_TIME.map(function (r) {
+        return frow(r.label, '$' + money(r.amt));
+      }).join("");
+      var monthly = MONTHLY_REQUIRED.concat(p.extraMonthly);
+      var util = monthly.map(function (r) {
+        return frow(r.label, '$' + money(r.amt));
+      }).join("");
+      var total = p.rent + sum(monthly);
+
+      return '<p class="subhead">One-time charges</p>' +
+             once +
+             frow("Due at signing", '$' + money(sum(ONE_TIME)), "tot") +
+             '<p class="fnote">Plus the first month&rsquo;s rent, due before ' +
+             'move-in. Deposit is refundable at the end of the lease.</p>' +
+             '<p class="subhead">Estimated monthly cost</p>' +
+             frow("Base rent", '$' + money(p.rent)) +
+             util +
+             frow("Estimated monthly total", '$' + money(total), "tot") +
+             '<p class="fnote">Utilities and essentials are required. They are ' +
+             'billed with rent or directly by the provider. Twelve-month lease.</p>';
+    }
+
+    if (key === "optional") {
+      var blocks = OPTIONAL_FEES.map(function (g) {
+        return '<p class="subhead">' + g.head + '</p>' +
+               g.rows.map(function (r) { return frow(r.label, r.val); }).join("");
+      }).join("");
+      return blocks +
+             '<p class="fnote">Optional add-ons are not included in the estimated ' +
+             'monthly total under Pricing Details.</p>';
+    }
+
+    /* Specials now VARY by unit, so this section can reorder the options on
+       effective cost. Only the two values 4 and 2 are in use; widen the label
+       map if a future version adds others. */
+    var freeLabel = p.freeWeeks === 4 ? "one month free rent"
+                                      : "two weeks free rent";
+    var concession = Math.round(p.rent * (p.freeWeeks / 4) / 12);
+
+    return '<ul>' +
+             '<li>Up to <strong>' + freeLabel + '</strong> on a twelve-month ' +
+             'lease, applied as a $' + money(concession) +
+             ' monthly concession across the term.</li>' +
+             '<li>$200 administrative fee waived if your application is approved ' +
+             'within 48 hours of touring.</li>' +
+           '</ul>' +
+           '<p class="fnote">Concessions are credited monthly across the lease ' +
+           'term. Specials vary by unit and may end without notice.</p>';
+  }
+
+  /* ---------------- render ---------------- */
+
+  var optionsEl = document.getElementById("options");
+
+  optionsEl.innerHTML = assigned.map(function (p, i) {
+    var secs = secOrder.map(function (s) {
+      return '<div class="sec" data-unit="' + p.id + '" data-sec="' + s.key + '">' +
+               '<button type="button" class="sechead">' +
+                 '<span class="chev"></span><span>' + s.label + '</span>' +
+               '</button>' +
+               '<div class="secbody">' + content(p, s.key) + '</div>' +
+             '</div>';
+    }).join("");
+
+    return '<div class="card" data-profile="' + p.id + '" data-label="' + LABELS[i] + '">' +
+             '<p class="name">' + LABELS[i] + '</p>' +
+             '<div class="priceline">' +
+               '<span class="rate">$' + money(p.rent) + '</span>' +
+               '<span class="ratelab">' + TICK + 'Monthly Base Rent</span>' +
+             '</div>' +
+             '<div class="meta">' +
+               '<span>' + BEDS + '</span><span class="sep">&bull;</span>' +
+               '<span>' + BATHS + '</span><span class="sep">&bull;</span>' +
+               '<span>' + money(p.sqft) + ' Sq Ft</span>' +
+               '<span class="avail">' + AVAIL + '</span>' +
+             '</div>' +
+             '<button type="button" class="selectbtn">Select</button>' +
+             '<div class="sections">' + secs + '</div>' +
+           '</div>';
+  }).join("");
+
+  /* ---------------- bookkeeping ---------------- */
+
+  function openTargetCount() {
+    return document.querySelectorAll('.sec.open[data-sec="' + TARGET_SECTION + '"]').length;
+  }
+
+  function accrueTarget() {
+    if (targetSince !== null) {
+      var now = Date.now();
+      state.time_on_target += now - targetSince;
+      targetSince = now;
+    }
+  }
+
+  function syncTargetTimer() {
+    var n = openTargetCount();
+    if (n > 0 && targetSince === null) {
+      targetSince = Date.now();
+    } else if (n === 0 && targetSince !== null) {
+      state.time_on_target += Date.now() - targetSince;
+      targetSince = null;
+    }
+  }
+
+  function refreshCounts() {
+    var units = {}, perSection = {};
+
+    openedSet.forEach(function (id) {
+      var parts = id.split(":");
+      units[parts[0]] = 1;
+      perSection[parts[1]] = (perSection[parts[1]] || 0) + 1;
+    });
+
+    var full = 0;
+    Object.keys(perSection).forEach(function (k) { if (perSection[k] === 3) full += 1; });
+
+    state.n_sections_opened   = openedSet.length;
+    state.sections_opened     = openedSet.join(",");
+    state.acquisition_cost    = openedSet.length;
+    state.any_section_opened  = openedSet.length > 0 ? 1 : 0;
+    state.n_units_touched     = Object.keys(units).length;
+    state.n_sections_all_units = full;
+    state.n_target_units      = targetUnits.length;
+    state.target_units        = targetUnits.join(",");
+  }
+
+  /* ---------------- interaction ---------------- */
+
+  optionsEl.addEventListener("click", function (e) {
+
+    var sechead = e.target.closest(".sechead");
+    if (sechead) {
+      var sec = sechead.closest(".sec");
+      var unit = sec.getAttribute("data-unit");
+      var skey = sec.getAttribute("data-sec");
+
+      markInteraction();
+      accrueTarget();
+
+      // Independent toggles — any number of sections may be open at once.
+      var nowOpen = !sec.classList.contains("open");
+      sec.classList.toggle("open", nowOpen);
+
+      if (nowOpen) {
+        var id = unit + ":" + skey;
+        if (openedSet.indexOf(id) === -1) {
+          openedSet.push(id);
+          if (state.t_first_section === null) state.t_first_section = Date.now() - t0;
+
+          if (skey === TARGET_SECTION && targetUnits.indexOf(unit) === -1) {
+            targetUnits.push(unit);
+            // Criterion: acquired for ALL options, not merely opened once.
+            if (targetUnits.length === 3 && state.t_reveal === null) {
+              state.revealed = 1;
+              state.t_reveal = Date.now() - t0;
+            }
+          }
+        }
+      }
+
+      syncTargetTimer();
+      refreshCounts();
+      report();
+      reportHeight();
+      return;
+    }
+
+    var btn = e.target.closest(".selectbtn");
+    if (!btn) return;
+
+    markInteraction();
+    accrueTarget();
+    var card = btn.closest(".card");
+
+    if (state.choice_profile !== null &&
+        state.choice_profile !== card.getAttribute("data-profile")) {
+      state.choice_changes += 1;
+    }
+
+    document.querySelectorAll(".selectbtn").forEach(function (b) {
+      b.textContent = b === btn ? "Selected" : "Select";
+    });
+    document.querySelectorAll(".card").forEach(function (c) {
+      c.classList.toggle("chosen", c === card);
+    });
+
+    state.choice_profile = card.getAttribute("data-profile");
+    state.choice_label = card.getAttribute("data-label");
+    state.t_choice = Date.now() - t0;
+    state.n_sections_at_choice = openedSet.length;
+    state.n_target_open_at_choice = openTargetCount();
+    state.dwell_after_reveal =
+      state.t_reveal === null ? null : state.t_choice - state.t_reveal;
+
+    report();
+  });
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(function () { accrueTarget(); reportHeight(); report(); }, 500);
+
+  refreshCounts();
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

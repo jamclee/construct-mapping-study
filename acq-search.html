@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apartment Selection</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.45; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .scenario { font-size: 15px; margin: 0 0 18px; }
+
+  .searchbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+    border: 1px solid #d8dce1; border-radius: 6px; padding: 10px 12px;
+    margin-bottom: 14px; background: #f7f8fa; font-size: 13.5px; color: #4a5158;
+  }
+  .searchbar .field { display: flex; align-items: baseline; gap: 6px; }
+  .searchbar .lab { color: #868e96; font-size: 12px; }
+  .searchbar .val { color: #1f2328; font-weight: 500; }
+
+  /* ---- units ----
+     Each unit is a self-contained column: headline rent, a select control, and
+     its own stack of expandable sections. Cards are top-aligned and free to
+     differ in height, since sections open independently. */
+  .panel { border: 1px solid #dfe3e7; border-radius: 7px; background: #fff; }
+  .optionspanel { padding: 14px 15px; }
+  .options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-items: start; }
+
+  .card {
+    border: 1px solid #e6ebf0; border-radius: 6px;
+    padding: 12px 13px; background: #fdfefe;
+  }
+  .card.chosen { border-color: #2f6fb0; box-shadow: 0 0 0 1px #2f6fb0 inset; background: #fff; }
+  .name { font-size: 15px; font-weight: 600; margin: 0 0 5px; }
+  .rate { font-size: 19px; font-weight: 600; letter-spacing: -0.2px; }
+  .rate .per { font-size: 12.5px; font-weight: 500; color: #737b82; letter-spacing: 0; }
+  .selectbtn {
+    font-family: inherit; font-size: 13.5px; font-weight: 500;
+    margin-top: 11px; padding: 6px 14px; border-radius: 5px; width: 100%;
+    border: 1px solid #2f6fb0; background: #2f6fb0; color: #fff; cursor: pointer;
+  }
+  .selectbtn:hover { background: #275e97; border-color: #275e97; }
+
+  /* ---- per-unit expandable sections ---- */
+  .sections { margin-top: 11px; border-top: 1px solid #edf1f4; }
+  .sec { border-bottom: 1px solid #edf1f4; }
+  .sec:last-child { border-bottom: 0; }
+  .sechead {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    padding: 9px 0; border: 0; background: none; font-family: inherit;
+    font-size: 13px; font-weight: 500; color: #2f6fb0; text-align: left; cursor: pointer;
+  }
+  .sechead:hover { color: #21527f; }
+  .sechead .chev {
+    width: 7px; height: 7px; flex-shrink: 0; margin-left: 1px;
+    border-right: 1.8px solid #8fa7bd; border-bottom: 1.8px solid #8fa7bd;
+    transform: rotate(-45deg); transition: transform 0.12s ease;
+  }
+  .sec.open .sechead .chev { transform: rotate(45deg); border-color: #2f6fb0; }
+  .sec.open .sechead { color: #21527f; font-weight: 600; }
+
+  .secbody { display: none; padding: 2px 0 11px; }
+  .sec.open .secbody { display: block; }
+  .secbody p { margin: 0 0 7px; font-size: 13px; }
+  .secbody p:last-child { margin-bottom: 0; }
+  .secbody dl { margin: 0; font-size: 13px; }
+  .secbody dt { color: #737b82; font-size: 12px; }
+  .secbody dd { margin: 0 0 6px; }
+
+  /* balcony photographs. Swappable for real images — see PHOTOS below. */
+  .photo { width: 100%; height: auto; display: block; border-radius: 4px; border: 1px solid #e0e5ea; }
+  .aspectlab { font-size: 13px; margin: 7px 0 0 !important; }
+
+  @media (max-width: 560px) {
+    .options { grid-template-columns: 1fr; }
+    .photo { max-width: 280px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="scenario">
+    Imagine you are renting a one-bedroom apartment for the coming year. You have
+    already settled on this building, and three units are available.
+    <br><br>
+    You work from home and expect to use the balcony every day &mdash; having one
+    is the main reason you chose this building. Select the unit you would prefer.
+  </p>
+
+  <div class="searchbar">
+    <div class="field"><span class="lab">Property</span><span class="val">Maple Court, Building 2</span></div>
+    <div class="field"><span class="lab">Type</span><span class="val">One bedroom, unfurnished</span></div>
+    <div class="field"><span class="lab">Available</span><span class="val">From 1 October</span></div>
+  </div>
+
+  <div class="panel optionspanel">
+    <div class="options" id="options"></div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     ACQUISITION PROBE — per-option disclosure
+
+     STRUCTURAL NOTE, read this before using the data.
+
+     This version presents four labelled sections beneath each unit, opened
+     independently. That is a flat space of twelve controls whose labels are all
+     legible at a glance. By the test set out in link-acquisition.md §4, that is
+     the REVEAL access problem — information behind an obvious labelled control —
+     and not SEARCH, which requires the location of the answer to be uncertain
+     and the space too large to inspect exhaustively.
+
+     What survives is mild location uncertainty: the outlook lives under "Photos
+     and floor plan", and "Description" is the tempting first guess. The
+     description is written to be a genuine near-miss — it describes the balcony
+     without ever saying what it faces — so a wrong guess costs a click and
+     teaches the participant nothing, rather than punishing them.
+
+     What does NOT survive is the battery's search arm. This instrument is now
+     structurally parallel to acq-reveal: twelve openable things, criterion met
+     when one attribute is acquired for all three options, acquisition_cost on
+     the same 0-12 scale. Variable names below deliberately mirror acq-reveal so
+     the two can be analysed side by side. If the battery still needs a search
+     arm, it needs a third design rather than this one.
+
+     CRITERION (link-acquisition.md §5): the decision-relevant fact is acquired
+     for ALL options. Here that is the "Photos and floor plan" section opened for
+     all three units — not merely opened once. n_target_units (0-3) carries the
+     graded version and should be preferred over the binary in analysis.
+
+     The default layer supports a defensible-looking shortcut: rents are visible
+     and run against outlook, so the cheapest unit is the one facing the road.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "ACQ_SEARCH";
+  var LABELS = ["Unit A", "Unit B", "Unit C"];
+  var TARGET_SECTION = "photos";
+
+  var SECTIONS = [
+    { key: "facts",  label: "Key facts" },
+    { key: "desc",   label: "Description" },
+    { key: "photos", label: "Photos and floor plan" },
+    { key: "costs",  label: "Costs and terms" }
+  ];
+
+  /* ---------------- balcony photographs ----------------
+     Schematic inline SVG rather than photography, and deliberately so: the
+     three views are matched on element count, palette range and framing, so
+     what varies between them is the outlook itself and not image quality,
+     resolution or incidental prettiness. They are also self-contained, which
+     matters for a page served to an iframe — no external request can fail or
+     lag behind the rest of the stimulus.
+
+     To substitute real photographs, replace each constant below with an
+     <img class="photo" src="..." alt="..."> tag. Keep the alt text, keep the
+     three images matched on size and framing, and keep the written caption in
+     PROFILES — the caption, not the image, is what carries the fact for a
+     screen-reader user or a participant whose images fail to load. */
+
+  var PHOTO_COURTYARD =
+    '<svg class="photo" viewBox="0 0 200 130" xmlns="http://www.w3.org/2000/svg" role="img" ' +
+    'aria-label="View from the balcony: an enclosed courtyard garden with lawn, hedging and mature trees.">' +
+    '<rect width="200" height="130" fill="#dbe7f2"/>' +
+    '<rect y="52" width="200" height="78" fill="#cfe3c4"/>' +
+    '<rect y="46" width="200" height="8" fill="#9dbf8e"/>' +
+    '<path d="M0 96 Q100 84 200 96 L200 130 L0 130Z" fill="#c2dab5"/>' +
+    '<rect x="36" y="46" width="4" height="16" fill="#8a7358"/>' +
+    '<rect x="156" y="44" width="4" height="14" fill="#8a7358"/>' +
+    '<g fill="#7aa06a"><circle cx="38" cy="36" r="16"/><circle cx="53" cy="43" r="10"/>' +
+    '<circle cx="158" cy="34" r="14"/></g>' +
+    '<rect x="84" y="82" width="34" height="3" rx="1" fill="#bda180"/>' +
+    '<rect x="84" y="88" width="34" height="4" rx="1" fill="#a98f6f"/>' +
+    '<rect x="86" y="92" width="3" height="9" fill="#8a7358"/>' +
+    '<rect x="113" y="92" width="3" height="9" fill="#8a7358"/>' +
+    '</svg>';
+
+  var PHOTO_PARKING =
+    '<svg class="photo" viewBox="0 0 200 130" xmlns="http://www.w3.org/2000/svg" role="img" ' +
+    'aria-label="View from the balcony: the residents parking court, with marked bays and parked cars.">' +
+    '<rect width="200" height="130" fill="#dbe7f2"/>' +
+    '<rect y="48" width="200" height="82" fill="#d3d6da"/>' +
+    '<rect y="42" width="200" height="7" fill="#b6bac0"/>' +
+    '<g stroke="#f2f4f6" stroke-width="2" fill="none">' +
+    '<path d="M20 130 L34 66"/><path d="M70 130 L74 66"/>' +
+    '<path d="M120 130 L114 66"/><path d="M170 130 L154 66"/></g>' +
+    '<rect x="96" y="20" width="3" height="46" fill="#9aa0a6"/>' +
+    '<rect x="90" y="17" width="15" height="4" rx="2" fill="#9aa0a6"/>' +
+    '<g><rect x="36" y="74" width="34" height="16" rx="4" fill="#8b98a6"/>' +
+    '<rect x="44" y="67" width="18" height="9" rx="3" fill="#a3aeb9"/>' +
+    '<circle cx="44" cy="91" r="3" fill="#4a5158"/><circle cx="63" cy="91" r="3" fill="#4a5158"/></g>' +
+    '<g><rect x="112" y="72" width="34" height="16" rx="4" fill="#9aa4ad"/>' +
+    '<rect x="120" y="65" width="18" height="9" rx="3" fill="#b0b9c1"/>' +
+    '<circle cx="120" cy="89" r="3" fill="#4a5158"/><circle cx="139" cy="89" r="3" fill="#4a5158"/></g>' +
+    '</svg>';
+
+  var PHOTO_ROAD =
+    '<svg class="photo" viewBox="0 0 200 130" xmlns="http://www.w3.org/2000/svg" role="img" ' +
+    'aria-label="View from the balcony: the main road, with passing traffic and the buildings opposite.">' +
+    '<rect width="200" height="130" fill="#dbe7f2"/>' +
+    '<rect y="8" width="200" height="52" fill="#c3c8cf"/>' +
+    '<g fill="#aab1b9">' +
+    '<rect x="8" y="16" width="14" height="12"/><rect x="30" y="16" width="14" height="12"/>' +
+    '<rect x="52" y="16" width="14" height="12"/><rect x="8" y="34" width="14" height="12"/>' +
+    '<rect x="30" y="34" width="14" height="12"/><rect x="52" y="34" width="14" height="12"/>' +
+    '<rect x="120" y="16" width="14" height="12"/><rect x="142" y="16" width="14" height="12"/>' +
+    '<rect x="164" y="16" width="14" height="12"/><rect x="120" y="34" width="14" height="12"/>' +
+    '<rect x="142" y="34" width="14" height="12"/><rect x="164" y="34" width="14" height="12"/></g>' +
+    '<rect y="60" width="200" height="10" fill="#c9ccd1"/>' +
+    '<rect y="70" width="200" height="60" fill="#8f939a"/>' +
+    '<g stroke="#eceff2" stroke-width="3" stroke-dasharray="16 12" fill="none">' +
+    '<path d="M0 100 H200"/></g>' +
+    '<g><rect x="24" y="78" width="40" height="15" rx="4" fill="#7e8b99"/>' +
+    '<rect x="33" y="71" width="20" height="8" rx="3" fill="#95a2b0"/>' +
+    '<circle cx="34" cy="94" r="3" fill="#3f454b"/><circle cx="56" cy="94" r="3" fill="#3f454b"/></g>' +
+    '<g><rect x="126" y="107" width="46" height="17" rx="4" fill="#6f7c8a"/>' +
+    '<rect x="136" y="100" width="24" height="9" rx="3" fill="#8794a2"/>' +
+    '<circle cx="138" cy="126" r="3" fill="#3f454b"/><circle cx="162" cy="126" r="3" fill="#3f454b"/></g>' +
+    '</svg>';
+
+  /* ---------------- units ----------------
+     Rent is the visible default layer and runs against outlook: the cheapest
+     unit is the one overlooking the road. The spread is small (about 5%), so
+     the shortcut is tempting rather than overwhelming.
+
+     `desc` is the designed near-miss. It describes the balcony at length and
+     never says what it faces. `kitchen` is a deliberate rival differentiator —
+     it gives a participant who stops early something to prefer on, so stopping
+     feels like a decision rather than a shrug. */
+
+  var PROFILES = [
+    { id: "courtyard", rent: 1880, floor: "Third floor", size: "55",
+      photo: PHOTO_COURTYARD,
+      outlook: "Balcony faces the enclosed residents&rsquo; courtyard at the rear. " +
+               "Not overlooked by the road or the parking court.",
+      kitchen: "Fitted with a dishwasher and a washer-dryer." },
+    { id: "parking", rent: 1830, floor: "Second floor", size: "53",
+      photo: PHOTO_PARKING,
+      outlook: "Balcony faces the residents&rsquo; parking court at the side of " +
+               "the building.",
+      kitchen: "Fitted with a washer-dryer. No dishwasher." },
+    { id: "road", rent: 1780, floor: "First floor", size: "52",
+      photo: PHOTO_ROAD,
+      outlook: "Balcony faces the main road at the front of the building, " +
+               "overlooking the buildings opposite.",
+      kitchen: "Fitted with a dishwasher. Laundry is in a shared basement room." }
+  ];
+
+  /* ---------------- state ---------------- */
+
+  var t0 = Date.now();
+  var openedSet = [];      // "unitId:sectionKey", in order of first opening
+  var targetUnits = [];    // unit ids whose target section has been opened
+  var targetSince = null;
+
+  var state = {
+    probe: PROBE_ID,
+    mechanic: "reveal_per_option",
+    assignment: null,
+    section_order: null,
+    revealed: 0,                  // target section opened for ALL three units
+    any_section_opened: 0,
+    n_target_units: 0,            // 0-3 — the graded criterion, prefer this
+    target_units: null,
+    n_sections_opened: 0,         // 0-12
+    sections_opened: null,
+    n_sections_all_units: 0,      // sections opened for all three units
+    n_units_touched: 0,           // 0-3
+    acquisition_cost: 0,          // = n_sections_opened
+    time_on_target: 0,
+    t_first_interaction: null,
+    t_first_section: null,
+    t_reveal: null,               // ms to meeting the criterion
+    dwell_after_reveal: null,
+    n_sections_at_choice: 0,
+    n_target_open_at_choice: 0,   // 0-3
+    choice_profile: null,
+    choice_label: null,
+    choice_changes: 0,
+    t_choice: null
+  };
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) state.t_first_interaction = Date.now() - t0;
+  }
+
+  function shuffle(a) {
+    var arr = a.slice();
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  function money(n) {
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+  var assigned = shuffle(PROFILES);
+  state.assignment = assigned.map(function (p) { return p.id; }).join(",");
+
+  // Section order is randomised once and applied identically to all three
+  // units, so the columns stay comparable while position effects on which
+  // section gets opened first are controlled.
+  var secOrder = shuffle(SECTIONS);
+  state.section_order = secOrder.map(function (s) { return s.key; }).join(",");
+
+  /* ---------------- section content ---------------- */
+
+  function content(p, key) {
+    if (key === "facts") {
+      return '<dl>' +
+               '<dt>Bedrooms</dt><dd>1 bedroom, 1 bathroom</dd>' +
+               '<dt>Size</dt><dd>' + p.size + ' m&sup2;</dd>' +
+               '<dt>Floor</dt><dd>' + p.floor + ', lift access</dd>' +
+               '<dt>Available</dt><dd>1 October, unfurnished</dd>' +
+             '</dl>';
+    }
+    if (key === "desc") {
+      return '<p>A well-proportioned one-bedroom apartment in a modern block. The ' +
+             'open-plan living area opens through full-height doors onto a private ' +
+             'balcony of about 1.4 &times; 3.0 m, big enough for a small table and ' +
+             'two chairs.</p>' +
+             '<p>' + p.kitchen + ' Double glazing and electric heating throughout. ' +
+             'Built-in wardrobe in the bedroom and a hallway storage cupboard.</p>';
+    }
+    if (key === "photos") {
+      return p.photo +
+             '<p class="aspectlab">' + p.outlook + '</p>' +
+             '<p style="margin-top:7px;color:#737b82;font-size:12.5px">Photograph ' +
+             'taken from the balcony. Floor plan available on request.</p>';
+    }
+    // costs
+    return '<dl>' +
+             '<dt>Rent</dt><dd>$' + money(p.rent) + ' per month</dd>' +
+             '<dt>Deposit</dt><dd>Five weeks&rsquo; rent, held with a protection scheme</dd>' +
+             '<dt>Council tax</dt><dd>Band B</dd>' +
+           '</dl>' +
+           '<p style="margin-top:7px">Rent covers the building service charge and ' +
+           'upkeep of the shared areas. Electricity, water and broadband are billed ' +
+           'to the tenant. Twelve-month tenancy with a break clause from month six.</p>';
+  }
+
+  /* ---------------- render ---------------- */
+
+  var optionsEl = document.getElementById("options");
+
+  optionsEl.innerHTML = assigned.map(function (p, i) {
+    var secs = secOrder.map(function (s) {
+      return '<div class="sec" data-unit="' + p.id + '" data-sec="' + s.key + '">' +
+               '<button type="button" class="sechead">' +
+                 '<span class="chev"></span><span>' + s.label + '</span>' +
+               '</button>' +
+               '<div class="secbody">' + content(p, s.key) + '</div>' +
+             '</div>';
+    }).join("");
+
+    return '<div class="card" data-profile="' + p.id + '" data-label="' + LABELS[i] + '">' +
+             '<p class="name">' + LABELS[i] + '</p>' +
+             '<div class="rate">$' + money(p.rent) + '<span class="per">/month</span></div>' +
+             '<button type="button" class="selectbtn">Select</button>' +
+             '<div class="sections">' + secs + '</div>' +
+           '</div>';
+  }).join("");
+
+  /* ---------------- bookkeeping ---------------- */
+
+  function openTargetCount() {
+    return document.querySelectorAll('.sec.open[data-sec="' + TARGET_SECTION + '"]').length;
+  }
+
+  function accrueTarget() {
+    if (targetSince !== null) {
+      var now = Date.now();
+      state.time_on_target += now - targetSince;
+      targetSince = now;
+    }
+  }
+
+  function syncTargetTimer() {
+    var n = openTargetCount();
+    if (n > 0 && targetSince === null) {
+      targetSince = Date.now();
+    } else if (n === 0 && targetSince !== null) {
+      state.time_on_target += Date.now() - targetSince;
+      targetSince = null;
+    }
+  }
+
+  function refreshCounts() {
+    var units = {}, perSection = {};
+
+    openedSet.forEach(function (id) {
+      var parts = id.split(":");
+      units[parts[0]] = 1;
+      perSection[parts[1]] = (perSection[parts[1]] || 0) + 1;
+    });
+
+    var full = 0;
+    Object.keys(perSection).forEach(function (k) { if (perSection[k] === 3) full += 1; });
+
+    state.n_sections_opened   = openedSet.length;
+    state.sections_opened     = openedSet.join(",");
+    state.acquisition_cost    = openedSet.length;
+    state.any_section_opened  = openedSet.length > 0 ? 1 : 0;
+    state.n_units_touched     = Object.keys(units).length;
+    state.n_sections_all_units = full;
+    state.n_target_units      = targetUnits.length;
+    state.target_units        = targetUnits.join(",");
+  }
+
+  /* ---------------- interaction ---------------- */
+
+  optionsEl.addEventListener("click", function (e) {
+
+    var sechead = e.target.closest(".sechead");
+    if (sechead) {
+      var sec = sechead.closest(".sec");
+      var unit = sec.getAttribute("data-unit");
+      var skey = sec.getAttribute("data-sec");
+
+      markInteraction();
+      accrueTarget();
+
+      // Independent toggles — any number of sections may be open at once.
+      var nowOpen = !sec.classList.contains("open");
+      sec.classList.toggle("open", nowOpen);
+
+      if (nowOpen) {
+        var id = unit + ":" + skey;
+        if (openedSet.indexOf(id) === -1) {
+          openedSet.push(id);
+          if (state.t_first_section === null) state.t_first_section = Date.now() - t0;
+
+          if (skey === TARGET_SECTION && targetUnits.indexOf(unit) === -1) {
+            targetUnits.push(unit);
+            // Criterion: acquired for ALL options, not merely opened once.
+            if (targetUnits.length === 3 && state.t_reveal === null) {
+              state.revealed = 1;
+              state.t_reveal = Date.now() - t0;
+            }
+          }
+        }
+      }
+
+      syncTargetTimer();
+      refreshCounts();
+      report();
+      reportHeight();
+      return;
+    }
+
+    var btn = e.target.closest(".selectbtn");
+    if (!btn) return;
+
+    markInteraction();
+    accrueTarget();
+    var card = btn.closest(".card");
+
+    if (state.choice_profile !== null &&
+        state.choice_profile !== card.getAttribute("data-profile")) {
+      state.choice_changes += 1;
+    }
+
+    document.querySelectorAll(".selectbtn").forEach(function (b) {
+      b.textContent = b === btn ? "Selected" : "Select";
+    });
+    document.querySelectorAll(".card").forEach(function (c) {
+      c.classList.toggle("chosen", c === card);
+    });
+
+    state.choice_profile = card.getAttribute("data-profile");
+    state.choice_label = card.getAttribute("data-label");
+    state.t_choice = Date.now() - t0;
+    state.n_sections_at_choice = openedSet.length;
+    state.n_target_open_at_choice = openTargetCount();
+    state.dwell_after_reveal =
+      state.t_reveal === null ? null : state.t_choice - state.t_reveal;
+
+    report();
+  });
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(function () { accrueTarget(); reportHeight(); report(); }, 500);
+
+  refreshCounts();
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card Offer Summary</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.45; color: #1f2328; background: #fff;
+    padding: 4px 2px 18px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .scenario { font-size: 15px; margin: 0 0 18px; }
+
+  .listinghead {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 16px; padding-bottom: 11px; border-bottom: 1px solid #e6e8eb;
+    margin-bottom: 2px;
+  }
+  .title { font-size: 17px; font-weight: 600; margin: 0 0 2px; }
+  .sub { font-size: 13px; color: #737b82; margin: 0; }
+  .priceblock { text-align: right; white-space: nowrap; flex-shrink: 0; }
+  .rate { font-size: 20px; font-weight: 600; letter-spacing: -0.2px; }
+  .rate span { font-size: 12.5px; font-weight: 400; color: #737b82; }
+
+  /* Internal scroll pane. A Qualtrics iframe that auto-resizes to its content
+     never scrolls itself, so page-level scroll cannot be detected. Scrolling
+     a fixed-height element inside the page is reliable regardless of how the
+     iframe is sized. */
+  .panewrap { position: relative; }
+  #pane {
+    height: 420px; overflow-y: auto; padding: 14px 16px 18px;
+    border: 1px solid #dfe3e7; border-top: 0;
+    border-radius: 0 0 7px 7px;
+  }
+  .panewrap::after {
+    content: ""; position: absolute; left: 1px; right: 14px; bottom: 1px; height: 34px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95));
+    pointer-events: none; border-radius: 0 0 7px 7px;
+  }
+  .panewrap.at-end::after { opacity: 0; }
+
+  #pane h3 {
+    font-size: 14px; font-weight: 600; margin: 18px 0 7px;
+    text-transform: uppercase; letter-spacing: 0.03em; color: #4a5158;
+  }
+  #pane h3:first-child { margin-top: 0; }
+  #pane p { margin: 0 0 10px; font-size: 14px; }
+  #pane ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; }
+  #pane li { margin-bottom: 4px; }
+
+  .facts { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 4px; }
+  .facts th, .facts td {
+    text-align: left; padding: 6px 10px 6px 0;
+    border-bottom: 1px solid #f1f3f5; vertical-align: top;
+  }
+  .facts th { color: #737b82; font-weight: 500; width: 40%; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="scenario">
+    Imagine that you are carrying a balance of about <strong>$6,000</strong> on a
+    credit card that charges 22.9% interest, and you are looking for a cheaper
+    way to pay it down over the coming year.
+    <br><br>
+    Your bank sends you the offer summary below for a balance transfer card.
+    Take your time reading it.
+  </p>
+
+  <div class="listinghead">
+    <div>
+      <p class="title">Meridian Platinum Transfer Card</p>
+      <p class="sub">Offer summary &middot; 0% for 15 months &middot; No annual fee</p>
+    </div>
+    <div class="priceblock">
+      <div class="rate">0% <span>intro APR</span></div>
+    </div>
+  </div>
+
+  <div class="panewrap" id="panewrap">
+    <div id="pane">
+
+      <h3>Summary of rates</h3>
+      <table class="facts"><tbody>
+        <tr><th>Introductory APR</th><td>0% for 15 months from account opening</td></tr>
+        <tr><th>Standard purchase APR</th><td>19.24% to 27.99% variable, based on creditworthiness</td></tr>
+        <tr><th>Standard transfer APR</th><td>Same as your purchase APR after the introductory period</td></tr>
+        <tr><th>Cash advance APR</th><td>29.99% variable</td></tr>
+        <tr><th>Annual fee</th><td>None</td></tr>
+        <tr><th>Minimum credit line</th><td>$2,000</td></tr>
+      </tbody></table>
+
+      <h3>How the introductory rate works</h3>
+      <p>
+        The 0% introductory rate applies to balances you transfer to this account
+        within the first 60 days after it is opened. Transfers requested after
+        day 60 are charged at your standard transfer APR from the date they post,
+        even if the introductory period has not ended.
+      </p>
+      <p>
+        The introductory period runs for fifteen consecutive billing cycles,
+        beginning with the first full cycle after your account is opened. It is
+        counted in billing cycles rather than calendar months, so the exact end
+        date depends on when in the month your account opens. Your statement will
+        show the remaining number of introductory cycles each month.
+      </p>
+      <p>
+        When the introductory period ends, any balance still outstanding begins
+        accruing interest at your standard transfer APR from that point forward.
+        Interest is not applied retroactively to the introductory period.
+      </p>
+
+      <h3>How interest is calculated</h3>
+      <p>
+        Interest is calculated using the average daily balance method, including
+        new transactions. Each day, the balance in each category is adjusted for
+        payments, credits and new charges, and the daily periodic rate is applied
+        to that figure. The results are added together at the end of the cycle.
+      </p>
+      <p>
+        Because the variable rates are tied to a published index, they may rise
+        or fall over the life of the account. A change to the index takes effect
+        with the first billing cycle beginning after the change is published. We
+        will notify you in writing of any change that is not driven by the index.
+      </p>
+      <p>
+        Purchases are eligible for an interest-free grace period if you pay your
+        statement balance in full by the due date each cycle. Transferred
+        balances and cash advances are not eligible for a grace period, and
+        carrying a transferred balance may mean new purchases begin accruing
+        interest immediately.
+      </p>
+
+      <h3>Making payments</h3>
+      <p>
+        Your minimum payment each cycle is the greater of $35 or 2% of your
+        statement balance, plus any interest and fees assessed that cycle, plus
+        any amount past due. Payments are due on the same calendar day each
+        month, and you may change your due date once per year.
+      </p>
+      <p>
+        Payments up to your minimum are applied to the balance carrying the
+        lowest APR first. Any amount you pay above the minimum is applied to the
+        balance carrying the highest APR first. While the introductory rate is in
+        effect, this means minimum payments will generally reduce your
+        transferred balance rather than any higher-rate balance on the account.
+      </p>
+      <p>
+        Paying only the minimum will not clear a transferred balance before the
+        introductory period ends. A schedule showing how long repayment would
+        take at the minimum payment appears on each monthly statement.
+      </p>
+
+      <h3>Fees</h3>
+      <p>
+        The following fees apply to this account. They are charged to your
+        account and appear on the statement for the cycle in which they are
+        assessed.
+      </p>
+      <ul>
+        <li>Annual fee: none, for the life of the account.</li>
+        <li>
+          <strong data-target="fee">Balance transfer fee: 5% of the amount of
+          each transfer, with a minimum of $15. This fee is charged at the time
+          the transfer is made and is added to your transferred balance.</strong>
+        </li>
+        <li>Cash advance fee: 5% of the amount of each advance, minimum $10.</li>
+        <li>Foreign transaction fee: 3% of each transaction in a foreign currency.</li>
+        <li>Returned payment fee: up to $40.</li>
+      </ul>
+
+      <h3>If you pay late or exceed your limit</h3>
+      <p>
+        A late payment fee of up to $40 may be assessed if we do not receive at
+        least your minimum payment by the due date. We do not charge a fee for
+        exceeding your credit limit, though transactions that would take you over
+        it may be declined.
+      </p>
+      <p>
+        If a payment is more than 60 days late, we may apply a penalty APR of
+        up to 29.99% to all balances on the account, including any balance still
+        within the introductory period. The penalty rate applies indefinitely,
+        though we will review the account after six consecutive on-time payments.
+      </p>
+
+      <h3>Changes to your account</h3>
+      <p>
+        We may change the terms of this agreement, including rates and fees, with
+        45 days' written notice. You may reject certain changes by notifying us
+        before the effective date, in which case the account will be closed to new
+        transactions and you may repay the existing balance under the prior terms.
+      </p>
+      <p>
+        Credit limits are reviewed periodically and may be increased or decreased
+        based on account performance and information from consumer reporting
+        agencies. You may request a limit review once every six months.
+      </p>
+
+      <h3>Other information</h3>
+      <p>
+        This summary is not the full cardholder agreement. The complete agreement
+        is provided when your account is opened and governs in the event of any
+        inconsistency with this document. Offer terms are subject to change and
+        this offer may be withdrawn if not accepted within 30 days.
+      </p>
+      <p>
+        Approval is subject to a review of your credit history and income. Not all
+        applicants will qualify for the lowest advertised rate or for the full
+        credit line requested.
+      </p>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     ACQUISITION PROBE — access problem: EXPOSURE / SCROLL
+
+     The decision-relevant fact is not hidden and not misfiled. It is plainly
+     present in the document, in the section where a reader would expect it
+     (Fees), simply below the current viewport. No discrete act reveals it;
+     acquisition depends only on visually reaching it. This is exposure
+     acquisition rather than information search.
+
+     READING-ONLY. There is no response control on this page. The participant
+     reads the document and moves on; whatever the buried fact feeds into lives
+     on a later page of the survey. That keeps acquisition a purely behavioural
+     measure — target_seen, max_scroll_pct, time_target_visible — rather than
+     something inferred from a choice, which is what link-acquisition.md §4 asks
+     for.
+
+     CONSEQUENCE FOR GATING, and it is load-bearing. With no response to wait
+     on, nothing on the page compels scrolling. Gate the survey's Next button on
+     a MINIMUM DWELL (a timer), never on reached_bottom. Gating on reached_bottom
+     would force every participant to the foot of the document, pinning
+     max_scroll_pct at 100 and target_seen at 1, and would destroy the very
+     variance this instrument exists to produce. A dwell gate gives everyone the
+     opportunity to read without compelling it, which is the distinction the
+     measure depends on.
+
+     DEFAULT LAYER. What is visible without scrolling is the attractive part:
+     0% APR for 15 months, no annual fee, and a rate summary that reads as
+     favourable. On the scenario's $6,000 balance the buried 5% transfer fee is
+     $300, charged up front and added to the balance — so the offer that looks
+     free at the top of the document is not. The fact is therefore material for
+     every participant, not only a subset, which is what makes non-acquisition
+     interpretable rather than merely incurious.
+
+     A fade at the foot of the pane signals that more content exists. That is
+     deliberate: the probe should measure whether participants bother to read
+     on, never whether they could tell there was more. Failure must be about
+     effort, not discoverability.
+
+     Difficulty is not manipulated across the acquisition set. The criterion is
+     constant — one decision-relevant fact must be acquired — while cost differs
+     by mechanic. There are no discrete acquisition acts here, so scroll depth
+     is the cost measure rather than a click count.
+     ------------------------------------------------------------------ */
+
+  var PROBE_ID = "ACQ_SCROLL";
+  var VISIBLE_THRESHOLD = 0.6; // proportion of the target that must be in view
+
+  var t0 = Date.now();
+  var pane = document.getElementById("pane");
+  var paneWrap = document.getElementById("panewrap");
+  var target = document.querySelector('[data-target="fee"]');
+
+  var targetVisibleSince = null;
+
+  var state = {
+    probe: PROBE_ID,
+    mechanic: "scroll",
+    revealed: 0,             // 1 if the target passage entered view
+    target_seen: 0,
+    t_target_seen: null,     // ms to first sighting
+    time_target_visible: 0,  // accumulated ms with the target in view
+    max_scroll_pct: 0,       // furthest point reached, 0-100 — the cost measure
+    reached_bottom: 0,
+    scroll_events: 0,
+    t_first_interaction: null,
+    t_last_scroll: null,     // ms of the most recent scroll — when reading stopped
+    dwell_after_reveal: null // how much longer they kept reading after sighting
+  };
+
+  function markInteraction() {
+    if (state.t_first_interaction === null) state.t_first_interaction = Date.now() - t0;
+  }
+
+  /* With no response to anchor it, dwell is measured against the last scroll:
+     how much longer the participant kept moving through the document after the
+     target came into view. Clamped at zero because the IntersectionObserver can
+     report a sighting fractionally after the scroll event that caused it. */
+  function refreshDwell() {
+    if (state.t_target_seen !== null && state.t_last_scroll !== null) {
+      state.dwell_after_reveal = Math.max(0, state.t_last_scroll - state.t_target_seen);
+    }
+  }
+
+  /* ---------------- scroll depth ---------------- */
+
+  function scrollPct() {
+    var max = pane.scrollHeight - pane.clientHeight;
+    if (max <= 0) return 100;
+    return Math.round((pane.scrollTop / max) * 1000) / 10;
+  }
+
+  pane.addEventListener("scroll", function () {
+    markInteraction();
+    state.scroll_events += 1;
+    state.t_last_scroll = Date.now() - t0;
+
+    var pct = scrollPct();
+    if (pct > state.max_scroll_pct) state.max_scroll_pct = pct;
+    if (pct >= 99) state.reached_bottom = 1;
+
+    paneWrap.classList.toggle("at-end", pct >= 99);
+    refreshDwell();
+    report();
+  });
+
+  /* ---------------- target exposure ---------------- */
+
+  function accrueVisible() {
+    if (targetVisibleSince !== null) {
+      var now = Date.now();
+      state.time_target_visible += now - targetVisibleSince;
+      targetVisibleSince = now;
+    }
+  }
+
+  if (window.IntersectionObserver) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        var showing = entry.isIntersecting && entry.intersectionRatio >= VISIBLE_THRESHOLD;
+
+        if (showing && targetVisibleSince === null) {
+          targetVisibleSince = Date.now();
+          if (!state.target_seen) {
+            state.target_seen = 1;
+            state.revealed = 1;
+            state.t_target_seen = Date.now() - t0;
+            refreshDwell();
+          }
+        } else if (!showing && targetVisibleSince !== null) {
+          state.time_target_visible += Date.now() - targetVisibleSince;
+          targetVisibleSince = null;
+        }
+        report();
+      });
+    }, { root: pane, threshold: [0, VISIBLE_THRESHOLD, 1] });
+
+    io.observe(target);
+  } else {
+    // Fallback for browsers without IntersectionObserver: geometric check.
+    pane.addEventListener("scroll", function () {
+      var tr = target.getBoundingClientRect();
+      var pr = pane.getBoundingClientRect();
+      var showing = tr.top < pr.bottom && tr.bottom > pr.top;
+      if (showing && !state.target_seen) {
+        state.target_seen = 1;
+        state.revealed = 1;
+        state.t_target_seen = Date.now() - t0;
+        targetVisibleSince = Date.now();
+        refreshDwell();
+      }
+    });
+  }
+
+  /* ---------------- reporting ---------------- */
+
+  function report() {
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, data: state }, "*");
+    } catch (err) {}
+  }
+
+  var lastHeight = 0, ro = null;
+  function reportHeight() {
+    var h = document.body.scrollHeight + 24;
+    if (h === lastHeight) return;
+    lastHeight = h;
+    try {
+      window.parent.postMessage({ source: "probe", probe: PROBE_ID, height: h }, "*");
+    } catch (err) {}
+  }
+  window.addEventListener("load", reportHeight);
+  window.addEventListener("resize", reportHeight);
+  if (window.ResizeObserver) { ro = new ResizeObserver(reportHeight); ro.observe(document.body); }
+  setInterval(function () { accrueVisible(); reportHeight(); report(); }, 500);
+
+  report();
+  reportHeight();
+})();
+</script>
+</body>
+</html>
